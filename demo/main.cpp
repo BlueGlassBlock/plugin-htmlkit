@@ -38,13 +38,14 @@ int GetEncoderClsid(const WCHAR *format, CLSID *pClsid) {
     return -1; // Failure
 }
 
-void render_cairo(std::string file) {
+void render_cairo(std::string file, int width) {
     auto doc = litehtml::document::createFromString(
         file, new windows_container(), litehtml::master_css,
         "html { background-color: #fff; }");
 
     auto start = std::chrono::high_resolution_clock::now();
-    int best_width = doc->render(1080);
+    int best_width = width == -1 ? doc->render(1080) : width;
+    doc->render(best_width);
     cairo_t *cr = cairo_create(
         cairo_image_surface_create(CAIRO_FORMAT_ARGB32, best_width, doc->content_height()));
     litehtml::position pos(0, 0, best_width, doc->content_height());
@@ -63,7 +64,7 @@ void render_cairo(std::string file) {
     std::cout << "Rendering took " << duration << " ms" << std::endl;
 }
 
-void render_gdiplus(std::string file) {
+void render_gdiplus(std::string file, int width) {
     auto doc = litehtml::document::createFromString(
         file, new dull_gdiplus_container(), litehtml::master_css,
         "html { background-color: #fff; }");
@@ -73,7 +74,8 @@ void render_gdiplus(std::string file) {
     Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
     auto start = std::chrono::high_resolution_clock::now();
-    int best_width = doc->render(1080);
+    int best_width = width == -1 ? doc->render(1080) : width;
+    doc->render(best_width);
     HDC hdcScreen = GetDC(NULL);
     HDC hdcMem = CreateCompatibleDC(hdcScreen);
     HBITMAP hBitmap =
@@ -104,14 +106,19 @@ void render_gdiplus(std::string file) {
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <html_file>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <html_file> [width]" << std::endl;
         return 1;
     }
     std::ifstream file;
     file.open(argv[1], std::ios::in);
     std::stringstream buffer;
     buffer << file.rdbuf();
-    render_cairo(buffer.str());
-    render_gdiplus(buffer.str());
+    int width = -1;
+    if (argc > 2) {
+        width = std::stoi(argv[2]);
+        std::cout << "Using width: " << width << std::endl;
+    }
+    render_cairo(buffer.str(), width);
+    render_gdiplus(buffer.str(), width);
     return 0;
 }

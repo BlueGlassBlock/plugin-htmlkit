@@ -39,9 +39,6 @@ win32_container::win32_container()
 	m_installed_fonts.insert(L"sans-serif");
 	m_installed_fonts.insert(L"fantasy");
 	m_installed_fonts.insert(L"cursive");
-	for (auto font: m_installed_fonts) {
-		std::wcout << font << std::endl;
-	}
 }
 
 win32_container::~win32_container()

@@ -1,5 +1,7 @@
 #include "cairo_font.h"
 
+#include <iostream>
+
 CRITICAL_SECTION cairo_font::m_sync = {};
 
 cairo_font::cairo_font(IMLangFontLink2* fl, HFONT hFont, int size )
@@ -55,7 +57,8 @@ cairo_font::cairo_font(IMLangFontLink2* fl, LPCWSTR facename, int size, int weig
 	lf.lfQuality		= DEFAULT_QUALITY;
 	lf.lfStrikeOut		= strikeout;
 	lf.lfUnderline		= underline;
-
+	std::wstring wname = lf.lfFaceName;
+	std::wcout << "Creating font: " << wname << std::endl;
 	HFONT fnt = CreateFontIndirect(&lf);
 	set_font(fnt);
 }

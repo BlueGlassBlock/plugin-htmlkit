@@ -1,5 +1,4 @@
 add_rules("mode.debug", "mode.release")
-add_rules("plugin.compile_commands.autoupdate", {outputdir = ".vscode"})
 
 package("litehtml_local")
     set_homepage("http://www.litehtml.com/")
@@ -35,9 +34,11 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("cairo", "pybind11", "litehtml_local")
+add_requires("cairo", "pango", "litehtml_local", "python")
 
 set_languages("c++17")
+
+add_requireconfs("**.python", {override = true, version = "3.9.x"})
 
 target("demo")
     add_packages("litehtml_local", "cairo")
@@ -51,16 +52,14 @@ target("demo")
 
 target("core")
     set_prefixdir("$(prefixdir)/$(pythondir)", { bindir = "nonebot_plugin_htmlkit", libdir = "" })
-    add_packages("litehtml_local", "cairo", "pybind11")
-    add_rules("python.module")
+    add_packages("litehtml_local", "cairo", "pango", "python")
+    add_rules("python.module", {soabi = "true"})
     add_files("core/*.cpp")
     add_defines("UNICODE")
-    
-    before_install(function (target) 
-        import("core.base.option")
-        local options = option.options()
-        options["nopkgs"] = true
-    end)
+
+    if is_plat("windows") then
+        add_links("Dwrite")
+    end
 
     add_installfiles("(nonebot_plugin_htmlkit/**)", {prefixdir= "$(pythondir)"})
     add_installfiles("LICENSE", {prefixdir= "$(metadatadir)"})
