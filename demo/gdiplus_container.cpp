@@ -88,7 +88,7 @@ void gdiplus_container::draw_img_bg(HDC hdc, uint_ptr img, const litehtml::backg
 		scaled_img = new Bitmap(bg.origin_box.width, bg.origin_box.height);
 		Graphics gr(scaled_img);
 		gr.SetPixelOffsetMode(PixelOffsetModeHighQuality);
-		gr.DrawImage(bgbmp, 0, 0, bg.origin_box.width, bg.origin_box.height);
+		gr.DrawImage(bgbmp, 0.0, 0.0, bg.origin_box.width, bg.origin_box.height);
 		bgbmp = scaled_img;
 	}
 

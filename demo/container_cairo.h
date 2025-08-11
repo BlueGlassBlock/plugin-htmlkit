@@ -35,8 +35,8 @@ class container_cairo : public litehtml::document_container {
     container_cairo() = default;
     virtual ~container_cairo() = default;
 
-    int pt_to_px(int pt) const override;
-    int get_default_font_size() const override;
+    litehtml::pixel_t pt_to_px(float pt) const override;
+    litehtml::pixel_t get_default_font_size() const override;
     const char *get_default_font_name() const override;
     void get_image_size(const char *src, const char *baseurl,
                         litehtml::size &sz) override;
@@ -92,8 +92,9 @@ class container_cairo : public litehtml::document_container {
     void on_mouse_event(const litehtml::element::ptr &el,
                         litehtml::mouse_event event) override {}
     void set_cursor(const char *cursor) override {}
-    void import_css(litehtml::string &text, const litehtml::string &url,
-                    litehtml::string &baseurl) override {};
+    std::function<void()> import_css(const litehtml::string& url, const litehtml::string& baseurl, const std::function<void(const litehtml::string& css_text, const litehtml::string& new_baseurl)>& on_imported) override {
+        return [&]() { on_imported(litehtml::string(), litehtml::string()); };
+    };
     void load_image(const char *src, const char *baseurl,
                     bool redraw_on_ready) override {}
     void get_viewport(litehtml::position &viewport) const override {}

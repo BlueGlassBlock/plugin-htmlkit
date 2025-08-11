@@ -30,15 +30,15 @@ class win32_container : public litehtml::document_container {
                                    litehtml::font_metrics *fm) override;
     void delete_font(uint_ptr hFont) override;
     const char *get_default_font_name() const override;
-    int get_default_font_size() const override;
-    int text_width(const char *text, uint_ptr hFont) override;
+    litehtml::pixel_t get_default_font_size() const override;
+    litehtml::pixel_t text_width(const char* text, litehtml::uint_ptr hFont) override;
     void draw_text(uint_ptr hdc, const char *text, uint_ptr hFont,
                    litehtml::web_color color,
                    const litehtml::position &pos) override;
     void transform_text(litehtml::string &text,
                         litehtml::text_transform tt) override;
 
-    int pt_to_px(int pt) const override;
+    litehtml::pixel_t pt_to_px(float pt) const override;
     void draw_list_marker(uint_ptr hdc,
                           const litehtml::list_marker &marker) override;
     void load_image(const char *src, const char *baseurl,

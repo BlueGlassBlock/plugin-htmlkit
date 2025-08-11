@@ -34,20 +34,23 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("cairo", "pango", "litehtml_local", "python")
+add_requires("cairo", "pango", "litehtml_local", "python 3.9.x")
 
 set_languages("c++17")
 
-add_requireconfs("**.python", {override = true, version = "3.9.x"})
+add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
 
 target("demo")
-    add_packages("litehtml_local", "cairo")
+    add_packages("litehtml_local", "cairo", "pango", "python")
     set_kind("binary")
     add_files("demo/*.cpp")
+    add_files("core/*.cpp")
+    add_includedirs("core", {public = true})
     add_defines("UNICODE")
 
     if is_plat("windows") then
         add_links("OleAut32")
+        add_links("Dwrite")
     end
 
 target("core")

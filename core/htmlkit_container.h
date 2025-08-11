@@ -6,8 +6,6 @@
 #include "cairo_wrapper.h"
 #include "container_info.h"
 #include "cairo.h"
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
 
 class htmlkit_container final : public litehtml::document_container {
     cairo_wrapper::clip_box::vector m_clips;
@@ -17,20 +15,19 @@ class htmlkit_container final : public litehtml::document_container {
     std::string m_base_url;
 
     container_info m_info;
-    PyObject* m_log_fn = nullptr;
 
 public:
-    htmlkit_container(const std::string& base_url, const container_info& info, PyObject* log_fn = nullptr);
+    htmlkit_container(const std::string& base_url, const container_info& info);
     ~htmlkit_container() override;
 
     litehtml::uint_ptr create_font(const litehtml::font_description& descr, const litehtml::document* doc,
                                    litehtml::font_metrics* fm) override;
     void delete_font(litehtml::uint_ptr hFont) override;
-    int text_width(const char* text, litehtml::uint_ptr hFont) override;
+    litehtml::pixel_t text_width(const char* text, litehtml::uint_ptr hFont) override;
     void draw_text(litehtml::uint_ptr hdc, const char* text, litehtml::uint_ptr hFont, litehtml::web_color color,
                    const litehtml::position& pos) override;
-    int pt_to_px(int pt) const override;
-    int get_default_font_size() const override;
+    litehtml::pixel_t pt_to_px(float pt) const override;
+    litehtml::pixel_t get_default_font_size() const override;
     const char* get_default_font_name() const override;
     void draw_list_marker(litehtml::uint_ptr hdc, const litehtml::list_marker& marker) override;
     void load_image(const char* src, const char* baseurl, bool redraw_on_ready) override;
@@ -56,7 +53,6 @@ public:
     void on_mouse_event(const litehtml::element::ptr& el, litehtml::mouse_event event) override;
     void set_cursor(const char* cursor) override;
     void transform_text(litehtml::string& text, litehtml::text_transform tt) override;
-    void import_css(litehtml::string& text, const litehtml::string& url, litehtml::string& baseurl) override;
     void set_clip(const litehtml::position& pos, const litehtml::border_radiuses& bdr_radius) override;
     void del_clip() override;
     void get_viewport(litehtml::position& viewport) const override;
@@ -65,16 +61,17 @@ public:
     litehtml::element::ptr create_element(const char* tag_name, const litehtml::string_map& attributes,
                                           const std::shared_ptr<litehtml::document>& doc) override;
     // litehtml::string resolve_color(const litehtml::string&) const override;
-    // void split_text(const char* text, const std::function<void(const char*)>& on_word, const std::function<void(const char*)>& on_space) override;
+    void split_text(const char* text, const std::function<void(const char*)>& on_word, const std::function<void(const char*)>& on_space) override;
 
+    std::function<void()> import_css(const litehtml::string& url, const litehtml::string& baseurl, const std::function<void(const litehtml::string& css_text, const litehtml::string& new_baseurl)>& on_imported) override;
     void make_url(const char* url, const char* base_url,
                   litehtml::string& out);
     cairo_surface_t* get_image(const std::string& url);
 
 protected:
-    void draw_ellipse(cairo_t* cr, int x, int y, int width, int height,
-                      const litehtml::web_color& color, int line_width);
-    void fill_ellipse(cairo_t* cr, int x, int y, int width, int height,
+    void draw_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width, litehtml::pixel_t height,
+                      const litehtml::web_color& color, litehtml::pixel_t line_width);
+    void fill_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width, litehtml::pixel_t height,
                       const litehtml::web_color& color);
     void rounded_rectangle(cairo_t* cr, const litehtml::position& pos,
                            const litehtml::border_radiuses& radius);
@@ -91,7 +88,7 @@ protected:
 private:
     static void add_path_arc(cairo_t* cr, double x, double y, double rx,
                              double ry, double a1, double a2, bool neg);
-    static void draw_bmp(cairo_t* cr, cairo_surface_t* bmp, int x, int y,
+    static void draw_bmp(cairo_t* cr, cairo_surface_t* bmp, litehtml::pixel_t x, litehtml::pixel_t y,
                          int cx, int cy);
     static cairo_surface_t* scale_surface(cairo_surface_t* surface, int width,
                                           int height);

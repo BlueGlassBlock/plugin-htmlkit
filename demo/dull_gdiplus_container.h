@@ -29,7 +29,8 @@ class dull_gdiplus_container : public gdiplus_container {
     void on_mouse_event(const litehtml::element::ptr &el,
                         litehtml::mouse_event event) override {}
     void set_cursor(const char *cursor) override {}
-    void import_css(litehtml::string &text, const litehtml::string &url,
-                    litehtml::string &baseurl) override {};
+    std::function<void()> import_css(const litehtml::string& url, const litehtml::string& baseurl, const std::function<void(const litehtml::string& css_text, const litehtml::string& new_baseurl)>& on_imported) override {
+        return [&]() { on_imported(litehtml::string(), litehtml::string()); };
+    };
     void get_viewport(litehtml::position &viewport) const override {}
 };

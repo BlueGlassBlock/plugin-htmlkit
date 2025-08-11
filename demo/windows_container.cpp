@@ -74,7 +74,7 @@ void windows_container::delete_font(litehtml::uint_ptr hFont) {
     }
 }
 
-int windows_container::text_width(const char *text, litehtml::uint_ptr hFont) {
+litehtml::pixel_t windows_container::text_width(const char *text, litehtml::uint_ptr hFont) {
     cairo_font *fnt = (cairo_font *)hFont;
 
     cairo_save(m_temp_cr);

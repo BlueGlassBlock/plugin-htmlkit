@@ -1,4 +1,4 @@
-#define Py_LIMITED_API 0x03090000
+// #define Py_LIMITED_API 0x03090000
 #define PY_SSIZE_T_CLEAN
 #include <chrono>
 #include <utility>
@@ -51,6 +51,7 @@ extern "C" {
 static PyObject* render(PyObject* mod, PyObject* args) {
 	auto time_points = std::vector<std::pair<std::string, std::chrono::high_resolution_clock::time_point>>(0);
 	auto record_now = [&time_points](std::string msg) {
+		printf("%s\n", msg.c_str());
 		time_points.emplace_back(msg, std::chrono::high_resolution_clock::now());
 	};
 
@@ -69,14 +70,16 @@ static PyObject* render(PyObject* mod, PyObject* args) {
 	record_now("fc_set");
     PyObject* log_fn = nullptr;
     const char *font_name, *lang, *culture, *html_content, *base_url;
-    int width, height;
+    int dpi, width, height, default_font_size;
     container_info info;
-    if (!PyArg_ParseTuple(args, "ssiiiisssO", &html_content, &base_url, &info.dpi, &width, &height,
-                          &info.default_font_size_pt, &font_name, &lang, &culture, &log_fn)) {
+    if (!PyArg_ParseTuple(args, "ssiiiisssO", &html_content, &base_url, &dpi, &width, &height,
+                          &default_font_size, &font_name, &lang, &culture, &log_fn)) {
         return nullptr;
     }
+	info.dpi = dpi;
     info.width = width;
     info.height = height;
+	info.default_font_size_pt = default_font_size;
     info.default_font_name = std::string(font_name);
     info.language = std::string(lang);
     info.culture = std::string(culture);
@@ -88,30 +91,34 @@ static PyObject* render(PyObject* mod, PyObject* args) {
 
 	record_now("font_option_create");
 
-    htmlkit_container container(base_url_str, info, log_fn);
+    htmlkit_container container(base_url_str, info);
 
 	record_now("container_create");
 
-    auto doc = litehtml::document::createFromString(html_content_str, &container);
+    auto doc = litehtml::document::createFromString(html_content_str, &container, litehtml::master_css, " html { background-color: #fff; }");
 
 	record_now("document_create");
 
-	doc->render(width);
+	litehtml::pixel_t best_width = doc->render(width);
+	if (best_width < width) {
+		width = best_width;
+		doc->render(width);
+	}
 
 	record_now("document_render");
 
-    if (auto surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, doc->height())) {
+    if (auto surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, doc->content_height())) {
         auto cr = cairo_create(surface);
 
         // Fill background with white color
         cairo_save(cr);
-        cairo_rectangle(cr, 0, 0, width, height);
+        cairo_rectangle(cr, 0, 0, width, doc->content_height());
         cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
         cairo_fill(cr);
         cairo_restore(cr);
 
         // Draw document
-        litehtml::position clip(0, 0, width, doc->height());
+        litehtml::position clip(0, 0, width, doc->content_height());
 
 
         doc->draw((litehtml::uint_ptr)cr, 0, 0, &clip);

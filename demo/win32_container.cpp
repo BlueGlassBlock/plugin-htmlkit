@@ -150,12 +150,12 @@ const char* win32_container::get_default_font_name() const
 	return "Times New Roman";
 }
 
-int win32_container::get_default_font_size() const
+litehtml::pixel_t win32_container::get_default_font_size() const
 {
 	return 16;
 }
 
-int win32_container::text_width( const char* text, uint_ptr hFont )
+litehtml::pixel_t win32_container::text_width( const char* text, uint_ptr hFont )
 {
 	SIZE size = {};
 	SelectObject(m_tmp_hdc, (HFONT)hFont);
@@ -174,7 +174,7 @@ void win32_container::draw_text( uint_ptr hdc, const char* text, uint_ptr hFont,
 
 	SetTextColor((HDC) hdc, RGB(color.red, color.green, color.blue));
 
-	RECT rcText = { pos.left(), pos.top(), pos.right(), pos.bottom() };
+	RECT rcText = { (int)pos.left(), (int)pos.top(), (int)pos.right(), (int)pos.bottom() };
 	DrawText((HDC) hdc, utf8_to_utf16(text).c_str(), -1, &rcText, DT_SINGLELINE | DT_NOPREFIX | DT_BOTTOM | DT_NOCLIP);
 
 	SelectObject((HDC) hdc, oldFont);
@@ -182,10 +182,10 @@ void win32_container::draw_text( uint_ptr hdc, const char* text, uint_ptr hFont,
 	release_clip((HDC) hdc);
 }
 
-int win32_container::pt_to_px( int pt ) const
-{
-	return MulDiv(pt, GetDeviceCaps(m_tmp_hdc, LOGPIXELSY), 72);
+litehtml::pixel_t win32_container::pt_to_px(float pt) const {
+	return MulDiv((int)pt, GetDeviceCaps(m_tmp_hdc, LOGPIXELSY), 72);
 }
+
 
 void win32_container::draw_list_marker(uint_ptr hdc, const list_marker& marker)
 {

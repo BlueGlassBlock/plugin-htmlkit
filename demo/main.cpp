@@ -1,5 +1,7 @@
 #include "dull_gdiplus_container.h"
 #include "windows_container.h"
+#include "htmlkit_container.h"
+#include "fontconfig/fontconfig.h"
 #include <gdiplus.h>
 #include <windows.h>
 #pragma comment(lib, "gdiplus.lib")
@@ -104,6 +106,92 @@ void render_gdiplus(std::string file, int width) {
     std::cout << "Rendering took " << duration << " ms" << std::endl;
 }
 
+
+static const char* fc_config_windows = R"(<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+	<cachedir>C:/Users/blueg/AppData/Local/Temp/htmlkit_fontconfig</cachedir>
+	<dir>C:/Windows/Fonts</dir>
+	<alias>
+		<family>serif</family>
+		<prefer>
+			<family>Noto Serif</family>
+		</prefer>
+	</alias>
+	<alias>
+		<family>sans-serif</family>
+		<prefer>
+			<family>Noto Sans</family>
+		</prefer>
+	</alias>
+	<alias>
+		<family>fantasy</family>
+		<prefer>
+			<family>Noto Sans</family>
+		</prefer>
+	</alias>
+	<alias>
+		<family>cursive</family>
+		<prefer>
+			<family>Noto Sans</family>
+		</prefer>
+	</alias>
+	<alias>
+		<family>monospace</family>
+		<prefer>
+			<family>Noto Sans Mono</family>
+		</prefer>
+	</alias>
+</fontconfig>
+)";
+
+void render_htmlkit(std::string file, int width) {
+	FcConfig* fc = FcConfigCreate();
+	if (FcConfigParseAndLoadFromMemory(fc, (FcChar8*) fc_config_windows, FcTrue) != FcTrue) {
+		return;
+	}
+	if (FcConfigSetCurrent(fc) != FcTrue) {
+		return;
+	}
+	container_info info;
+	info.dpi = 96.0;
+	info.default_font_size_pt = 12.0;
+	info.width = width;
+	info.height = 1080;
+	info.default_font_name = "sans-serif";
+	info.language = "en";
+	info.culture = "US";
+	info.font_options = cairo_font_options_create();
+	cairo_font_options_set_antialias(info.font_options, CAIRO_ANTIALIAS_DEFAULT);
+	cairo_font_options_set_hint_style(info.font_options, CAIRO_HINT_STYLE_NONE);
+	cairo_font_options_set_subpixel_order(info.font_options, CAIRO_SUBPIXEL_ORDER_DEFAULT);
+
+	htmlkit_container container("", info);
+
+	auto doc = litehtml::document::createFromString(
+		file, &container, litehtml::master_css, "html {background-color: #fff;}");
+
+	auto start = std::chrono::high_resolution_clock::now();
+	int best_width = width == -1 ? doc->render(1080) : width;
+	doc->render(best_width);
+	cairo_t *cr = cairo_create(
+		cairo_image_surface_create(CAIRO_FORMAT_ARGB32, best_width, doc->content_height()));
+	litehtml::position pos(0, 0, best_width, doc->content_height());
+
+	doc->draw((litehtml::uint_ptr)cr, 0, 0, &pos);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration =
+		std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+			.count();
+
+	// Save the rendered document to a PNG file
+	cairo_surface_t *surface = cairo_get_target(cr);
+	cairo_surface_write_to_png(surface, "output_htmlkit.png");
+	cairo_destroy(cr);
+	std::cout << "Rendered document to output_htmlkit.png" << std::endl;
+	std::cout << "Rendering took " << duration << " ms" << std::endl;
+}
+
 int main(int argc, char **argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <html_file> [width]" << std::endl;
@@ -120,5 +208,6 @@ int main(int argc, char **argv) {
     }
     render_cairo(buffer.str(), width);
     render_gdiplus(buffer.str(), width);
+	render_htmlkit(buffer.str(), width);
     return 0;
 }

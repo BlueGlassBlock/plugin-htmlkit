@@ -27,14 +27,13 @@ void htmlkit_container::link(const std::shared_ptr<litehtml::document>& doc, con
 
 #pragma region CAIRO
 
-int htmlkit_container::pt_to_px(int pt) const {
-    return static_cast<int>(pt * m_info.dpi / 72.0);
+litehtml::pixel_t htmlkit_container::pt_to_px(float pt) const {
+    return m_info.dpi * pt / 72.0f;
 }
 
-int htmlkit_container::get_default_font_size() const {
+litehtml::pixel_t htmlkit_container::get_default_font_size() const {
     return pt_to_px(m_info.default_font_size_pt);
 }
-
 
 void htmlkit_container::draw_list_marker(litehtml::uint_ptr hdc, const litehtml::list_marker& marker) {
     if (!marker.image.empty()) {
@@ -51,13 +50,12 @@ void htmlkit_container::draw_list_marker(litehtml::uint_ptr hdc, const litehtml:
     else {
         switch (marker.marker_type) {
         case litehtml::list_style_type_circle: {
-            draw_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height,
-                         marker.color, 1);
+            draw_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height, marker.color,
+                         1);
         }
         break;
         case litehtml::list_style_type_disc: {
-            fill_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height,
-                         marker.color);
+            fill_ellipse((cairo_t*)hdc, marker.pos.x, marker.pos.y, marker.pos.width, marker.pos.height, marker.color);
         }
         break;
         case litehtml::list_style_type_square:
@@ -106,7 +104,7 @@ void htmlkit_container::clip_background_layer(cairo_t* cr, const litehtml::backg
 
 void htmlkit_container::draw_image(litehtml::uint_ptr hdc, const litehtml::background_layer& layer,
                                    const std::string& url, const std::string& base_url) {
-    if (url.empty() || (!layer.clip_box.width && !layer.clip_box.height)) {
+    if (url.empty() || (layer.clip_box.width == 0 && layer.clip_box.height == 0)) {
         return;
     }
 
@@ -121,9 +119,12 @@ void htmlkit_container::draw_image(litehtml::uint_ptr hdc, const litehtml::backg
 
     auto bgbmp = get_image(img_url);
     if (bgbmp) {
-        if (layer.origin_box.width != cairo_image_surface_get_width(bgbmp) ||
-            layer.origin_box.height != cairo_image_surface_get_height(bgbmp)) {
-            auto new_img = scale_surface(bgbmp, layer.origin_box.width, layer.origin_box.height);
+        int image_width = litehtml::round_f(layer.origin_box.width);
+        int image_height = litehtml::round_f(layer.origin_box.height);
+
+        if (image_width != cairo_image_surface_get_width(bgbmp) ||
+            image_height != cairo_image_surface_get_height(bgbmp)) {
+            auto new_img = scale_surface(bgbmp, image_width, image_height);
             cairo_surface_destroy(bgbmp);
             bgbmp = new_img;
         }
@@ -201,15 +202,16 @@ void htmlkit_container::draw_solid_fill(litehtml::uint_ptr hdc, const litehtml::
  */
 static void draw_pattern(cairo_t* cr, cairo_pattern_t* pattern,
                          const litehtml::background_layer& layer,
-                         const std::function<void(cairo_t* cr, cairo_pattern_t* pattern, int x, int y, int width,
-                                                  int height)>& draw) {
-    int start_x = layer.origin_box.x;
+                         const std::function<void(cairo_t* cr, cairo_pattern_t* pattern, litehtml::pixel_t x,
+                                                  litehtml::pixel_t y, litehtml::pixel_t width,
+                                                  litehtml::pixel_t height)>& draw) {
+    litehtml::pixel_t start_x = layer.origin_box.x;
     int num_x = 1;
-    int start_y = layer.origin_box.y;
+    litehtml::pixel_t start_y = layer.origin_box.y;
     int num_y = 1;
     if (layer.repeat == litehtml::background_repeat_repeat_x || layer.repeat == litehtml::background_repeat_repeat) {
         if (layer.origin_box.left() > layer.clip_box.left()) {
-            int num_left = (layer.origin_box.left() - layer.clip_box.left()) / layer.origin_box.width;
+            int num_left = (int)((layer.origin_box.left() - layer.clip_box.left()) / layer.origin_box.width);
             if (layer.origin_box.left() - num_left * layer.origin_box.width > layer.clip_box.left()) {
                 num_left++;
             }
@@ -217,7 +219,7 @@ static void draw_pattern(cairo_t* cr, cairo_pattern_t* pattern,
             num_x += num_left;
         }
         if (layer.origin_box.right() < layer.clip_box.right()) {
-            int num_right = (layer.clip_box.right() - layer.origin_box.right()) / layer.origin_box.width;
+            int num_right = (int)((layer.clip_box.right() - layer.origin_box.right()) / layer.origin_box.width);
             if (layer.origin_box.left() + num_right * layer.origin_box.width < layer.clip_box.right()) {
                 num_right++;
             }
@@ -226,7 +228,7 @@ static void draw_pattern(cairo_t* cr, cairo_pattern_t* pattern,
     }
     if (layer.repeat == litehtml::background_repeat_repeat_y || layer.repeat == litehtml::background_repeat_repeat) {
         if (layer.origin_box.top() > layer.clip_box.top()) {
-            int num_top = (layer.origin_box.top() - layer.clip_box.top()) / layer.origin_box.height;
+            int num_top = (int)((layer.origin_box.top() - layer.clip_box.top()) / layer.origin_box.height);
             if (layer.origin_box.top() - num_top * layer.origin_box.height > layer.clip_box.top()) {
                 num_top++;
             }
@@ -234,7 +236,7 @@ static void draw_pattern(cairo_t* cr, cairo_pattern_t* pattern,
             num_y += num_top;
         }
         if (layer.origin_box.bottom() < layer.clip_box.bottom()) {
-            int num_bottom = (layer.clip_box.bottom() - layer.origin_box.bottom()) / layer.origin_box.height;
+            int num_bottom = (int)((layer.clip_box.bottom() - layer.origin_box.bottom()) / layer.origin_box.height);
             if (layer.origin_box.bottom() + num_bottom * layer.origin_box.height < layer.clip_box.bottom()) {
                 num_bottom++;
             }
@@ -280,7 +282,8 @@ void htmlkit_container::draw_linear_gradient(litehtml::uint_ptr hdc, const liteh
                                           color_stop.color.alpha / 255.0);
     }
 
-    draw_pattern(cr, pattern, layer, [](cairo_t* cr, cairo_pattern_t* pattern, int x, int y, int width, int height) {
+    draw_pattern(cr, pattern, layer, [](cairo_t* cr, cairo_pattern_t* pattern, litehtml::pixel_t x, litehtml::pixel_t y,
+                                        litehtml::pixel_t width, litehtml::pixel_t height) {
                      cairo_set_source(cr, pattern);
                      cairo_rectangle(cr, x, y, width, height);
                      cairo_fill(cr);
@@ -322,26 +325,26 @@ void htmlkit_container::draw_borders(litehtml::uint_ptr hdc, const litehtml::bor
 
     cairo_new_path(cr);
 
-    int bdr_top = 0;
-    int bdr_bottom = 0;
-    int bdr_left = 0;
-    int bdr_right = 0;
+    litehtml::pixel_t bdr_top = 0;
+    litehtml::pixel_t bdr_bottom = 0;
+    litehtml::pixel_t bdr_left = 0;
+    litehtml::pixel_t bdr_right = 0;
 
     if (borders.top.width != 0 && borders.top.style > litehtml::border_style_hidden) {
-        bdr_top = (int)borders.top.width;
+        bdr_top = borders.top.width;
     }
     if (borders.bottom.width != 0 && borders.bottom.style > litehtml::border_style_hidden) {
-        bdr_bottom = (int)borders.bottom.width;
+        bdr_bottom = borders.bottom.width;
     }
     if (borders.left.width != 0 && borders.left.style > litehtml::border_style_hidden) {
-        bdr_left = (int)borders.left.width;
+        bdr_left = borders.left.width;
     }
     if (borders.right.width != 0 && borders.right.style > litehtml::border_style_hidden) {
-        bdr_right = (int)borders.right.width;
+        bdr_right = borders.right.width;
     }
 
     // draw right border
-    if (bdr_right) {
+    if (bdr_right != 0) {
         cairo_matrix_t save_matrix;
         cairo_get_matrix(cr, &save_matrix);
         cairo_translate(cr, draw_pos.left(), draw_pos.top());
@@ -366,7 +369,7 @@ void htmlkit_container::draw_borders(litehtml::uint_ptr hdc, const litehtml::bor
     }
 
     // draw bottom border
-    if (bdr_bottom) {
+    if (bdr_bottom != 0) {
         cairo_matrix_t save_matrix;
         cairo_get_matrix(cr, &save_matrix);
         cairo_translate(cr, draw_pos.left(), draw_pos.top());
@@ -391,7 +394,7 @@ void htmlkit_container::draw_borders(litehtml::uint_ptr hdc, const litehtml::bor
     }
 
     // draw top border
-    if (bdr_top) {
+    if (bdr_top != 0) {
         cairo_matrix_t save_matrix;
         cairo_get_matrix(cr, &save_matrix);
         cairo_translate(cr, draw_pos.left(), draw_pos.top());
@@ -415,7 +418,7 @@ void htmlkit_container::draw_borders(litehtml::uint_ptr hdc, const litehtml::bor
     }
 
     // draw left border
-    if (bdr_left) {
+    if (bdr_left != 0) {
         cairo_wrapper::border border(cr, draw_pos.left(), draw_pos.top(), draw_pos.bottom());
         border.side = cairo_wrapper::border::left_side;
         border.color = borders.left.color;
@@ -451,9 +454,10 @@ void htmlkit_container::apply_clip(cairo_t* cr) {
     }
 }
 
-void htmlkit_container::draw_ellipse(cairo_t* cr, int x, int y, int width, int height, const litehtml::web_color& color,
-                                     int line_width) {
-    if (!cr || !width || !height) return;
+void htmlkit_container::draw_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                                     litehtml::pixel_t height, const litehtml::web_color& color,
+                                     litehtml::pixel_t line_width) {
+    if (!cr || width == 0 || height == 0) return;
     cairo_save(cr);
 
     apply_clip(cr);
@@ -471,9 +475,9 @@ void htmlkit_container::draw_ellipse(cairo_t* cr, int x, int y, int width, int h
     cairo_restore(cr);
 }
 
-void htmlkit_container::fill_ellipse(cairo_t* cr, int x, int y, int width, int height,
-                                     const litehtml::web_color& color) {
-    if (!cr || !width || !height) return;
+void htmlkit_container::fill_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                                     litehtml::pixel_t height, const litehtml::web_color& color) {
+    if (!cr || width == 0 || height == 0) return;
     cairo_save(cr);
 
     apply_clip(cr);
@@ -494,7 +498,7 @@ const char* htmlkit_container::get_default_font_name() const {
     return m_info.default_font_name.c_str();
 }
 
-std::shared_ptr<litehtml::element> htmlkit_container::create_element(const char*/*tag_name*/,
+std::shared_ptr<litehtml::element> htmlkit_container::create_element(const char* tag_name,
                                                                      const litehtml::string_map&/*attributes*/,
                                                                      const std::shared_ptr<litehtml::document>& /*doc*/
 ) {
@@ -504,7 +508,7 @@ std::shared_ptr<litehtml::element> htmlkit_container::create_element(const char*
 void htmlkit_container::rounded_rectangle(cairo_t* cr, const litehtml::position& pos,
                                           const litehtml::border_radiuses& radius) {
     cairo_new_path(cr);
-    if (radius.top_left_x && radius.top_left_y) {
+    if (radius.top_left_x != 0 && radius.top_left_y != 0) {
         add_path_arc(cr,
                      pos.left() + radius.top_left_x,
                      pos.top() + radius.top_left_y,
@@ -519,7 +523,7 @@ void htmlkit_container::rounded_rectangle(cairo_t* cr, const litehtml::position&
 
     cairo_line_to(cr, pos.right() - radius.top_right_x, pos.top());
 
-    if (radius.top_right_x && radius.top_right_y) {
+    if (radius.top_right_x != 0 && radius.top_right_y != 0) {
         add_path_arc(cr,
                      pos.right() - radius.top_right_x,
                      pos.top() + radius.top_right_y,
@@ -531,7 +535,7 @@ void htmlkit_container::rounded_rectangle(cairo_t* cr, const litehtml::position&
 
     cairo_line_to(cr, pos.right(), pos.bottom() - radius.bottom_right_x);
 
-    if (radius.bottom_right_x && radius.bottom_right_y) {
+    if (radius.bottom_right_x != 0 && radius.bottom_right_y != 0) {
         add_path_arc(cr,
                      pos.right() - radius.bottom_right_x,
                      pos.bottom() - radius.bottom_right_y,
@@ -543,7 +547,7 @@ void htmlkit_container::rounded_rectangle(cairo_t* cr, const litehtml::position&
 
     cairo_line_to(cr, pos.left() - radius.bottom_left_x, pos.bottom());
 
-    if (radius.bottom_left_x && radius.bottom_left_y) {
+    if (radius.bottom_left_x != 0 && radius.bottom_left_y != 0) {
         add_path_arc(cr,
                      pos.left() + radius.bottom_left_x,
                      pos.bottom() - radius.bottom_left_y,
@@ -571,7 +575,8 @@ cairo_surface_t* htmlkit_container::scale_surface(cairo_surface_t* surface, int 
     return result;
 }
 
-void htmlkit_container::draw_bmp(cairo_t* cr, cairo_surface_t* bmp, int x, int y, int cx, int cy) {
+void htmlkit_container::draw_bmp(cairo_t* cr, cairo_surface_t* bmp, litehtml::pixel_t x, litehtml::pixel_t y, int cx,
+                                 int cy) {
     cairo_save(cr);
 
     {
@@ -647,7 +652,8 @@ void htmlkit_container::draw_radial_gradient(litehtml::uint_ptr hdc, const liteh
     }
 
     draw_pattern(cr, pattern, layer,
-                 [&gradient, &position](cairo_t* cr, cairo_pattern_t* pattern, int x, int y, int w, int h) {
+                 [&gradient, &position](cairo_t* cr, cairo_pattern_t* pattern, litehtml::pixel_t x, litehtml::pixel_t y,
+                                        litehtml::pixel_t w, litehtml::pixel_t h) {
                      cairo_matrix_t save_matrix;
                      cairo_get_matrix(cr, &save_matrix);
 
@@ -688,8 +694,8 @@ void htmlkit_container::draw_conic_gradient(litehtml::uint_ptr hdc, const liteht
 
     clip_background_layer(cr, layer);
 
-    cairo_pattern_t* pattern = cairo_wrapper::conic_gradient::create_pattern(
-        gradient.angle * M_PI / 180.0 - M_PI / 2.0, gradient.radius, gradient.color_points);
+    cairo_pattern_t* pattern = cairo_wrapper::conic_gradient::create_pattern(gradient.angle * M_PI / 180.0 - M_PI / 2.0,
+                                                                             gradient.radius, gradient.color_points);
     if (!pattern) return;
 
     // Translate a pattern to the (layer.origin_box.x, layer.origin_box.y) point
@@ -697,7 +703,8 @@ void htmlkit_container::draw_conic_gradient(litehtml::uint_ptr hdc, const liteht
     position.x -= (float)layer.origin_box.x;
     position.y -= (float)layer.origin_box.y;
 
-    draw_pattern(cr, pattern, layer, [&position](cairo_t* cr, cairo_pattern_t* pattern, int x, int y, int w, int h) {
+    draw_pattern(cr, pattern, layer, [&position](cairo_t* cr, cairo_pattern_t* pattern, litehtml::pixel_t x,
+                                                 litehtml::pixel_t y, litehtml::pixel_t w, litehtml::pixel_t h) {
                      cairo_matrix_t flib_m;
                      cairo_matrix_init_translate(&flib_m, -(position.x + (float)x), -(position.y + (float)y));
                      cairo_pattern_set_matrix(pattern, &flib_m);
@@ -727,12 +734,12 @@ litehtml::uint_ptr htmlkit_container::create_font(const litehtml::font_descripti
     for (auto& font : tokens) {
         litehtml::trim(font, " \t\r\n\f\v\"\'");
         if (litehtml::value_in_list(font, "serif;sans-serif;monospace;cursive;fantasy;")) {
-            fonts = font + ",";
+            fonts += font + ",";
+            continue;
         }
         litehtml::lcase(font);
         if (m_all_fonts.find(font) != m_all_fonts.end()) {
-            fonts = font;
-            fonts += ",";
+            fonts += font + ",";
         }
     }
 
@@ -827,7 +834,7 @@ litehtml::uint_ptr htmlkit_container::create_font(const litehtml::font_descripti
         ret->strikethrough_thickness = PANGO_PIXELS(ret->strikethrough_thickness);
         ret->strikethrough_position = PANGO_PIXELS(ret->strikethrough_position);
 
-        ret->overline_position = fm->ascent * PANGO_SCALE;
+        ret->overline_position = pango_units_from_double(fm->ascent);
         if (thinkness.is_predefined()) {
             ret->overline_thickness = pango_font_metrics_get_underline_thickness(metrics);
         }
@@ -853,7 +860,7 @@ void htmlkit_container::delete_font(litehtml::uint_ptr hFont) {
     }
 }
 
-int htmlkit_container::text_width(const char* text, litehtml::uint_ptr hFont) {
+litehtml::pixel_t htmlkit_container::text_width(const char* text, litehtml::uint_ptr hFont) {
     auto* fnt = (cairo_font*)hFont;
 
     cairo_save(m_temp_cr);
@@ -880,7 +887,8 @@ enum class draw_type {
     DRAW_UNDERLINE
 };
 
-static inline void draw_single_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type) {
+static inline void draw_single_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                                    int thickness, draw_type type) {
     double top;
     switch (type) {
     case draw_type::DRAW_UNDERLINE:
@@ -900,8 +908,8 @@ static inline void draw_single_line(cairo_t* cr, int x, int y, int width, int th
     cairo_line_to(cr, x + width, top);
 }
 
-static void draw_solid_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type,
-                            litehtml::web_color& color) {
+static void draw_solid_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                            int thickness, draw_type type, litehtml::web_color& color) {
     draw_single_line(cr, x, y, width, thickness, type);
 
     cairo_set_source_rgba(cr, (double)color.red / 255.0,
@@ -912,8 +920,8 @@ static void draw_solid_line(cairo_t* cr, int x, int y, int width, int thickness,
     cairo_stroke(cr);
 }
 
-static void draw_dotted_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type,
-                             litehtml::web_color& color) {
+static void draw_dotted_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                             int thickness, draw_type type, litehtml::web_color& color) {
     draw_single_line(cr, x, y, width, thickness, type);
 
     std::array<double, 2> dashes{0, thickness * 2.0};
@@ -929,8 +937,8 @@ static void draw_dotted_line(cairo_t* cr, int x, int y, int width, int thickness
     cairo_stroke(cr);
 }
 
-static void draw_dashed_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type,
-                             litehtml::web_color& color) {
+static void draw_dashed_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                             int thickness, draw_type type, litehtml::web_color& color) {
     draw_single_line(cr, x, y, width, thickness, type);
 
     std::array<double, 2> dashes{thickness * 2.0, thickness * 3.0};
@@ -945,9 +953,9 @@ static void draw_dashed_line(cairo_t* cr, int x, int y, int width, int thickness
     cairo_stroke(cr);
 }
 
-static void draw_wavy_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type,
-                           litehtml::web_color& color) {
-    double h_pad = 1.0;
+static void draw_wavy_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                           int thickness, draw_type type, litehtml::web_color& color) {
+    int h_pad = 1;
     int brush_height = (int)thickness * 3 + h_pad * 2;
     int brush_width = brush_height * 2 - 2 * thickness;
 
@@ -998,8 +1006,8 @@ static void draw_wavy_line(cairo_t* cr, int x, int y, int width, int thickness, 
     cairo_surface_destroy(brush_surface);
 }
 
-static void draw_double_line(cairo_t* cr, int x, int y, int width, int thickness, draw_type type,
-                             litehtml::web_color& color) {
+static void draw_double_line(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                             int thickness, draw_type type, litehtml::web_color& color) {
     cairo_set_line_width(cr, thickness);
     double top1;
     double top2;
@@ -1057,16 +1065,16 @@ void htmlkit_container::draw_text(litehtml::uint_ptr hdc, const char* text, lite
     PangoRectangle ink_rect, logical_rect;
     pango_layout_get_pixel_extents(layout, &ink_rect, &logical_rect);
 
-    int text_baseline = pos.height - fnt->descent;
+    litehtml::pixel_t text_baseline = pos.height - fnt->descent;
 
-    int x = pos.left() + logical_rect.x;
-    int y = pos.top();
+    litehtml::pixel_t x = pos.left() + logical_rect.x;
+    litehtml::pixel_t y = pos.top();
 
     cairo_move_to(cr, x, y);
     pango_cairo_update_layout(cr, layout);
     pango_cairo_show_layout(cr, layout);
 
-    int tw = 0;
+    litehtml::pixel_t tw = 0;
 
     if (fnt->underline || fnt->strikeout || fnt->overline) {
         tw = text_width(text, hFont);
@@ -1105,12 +1113,13 @@ void htmlkit_container::draw_text(litehtml::uint_ptr hdc, const char* text, lite
     g_object_unref(layout);
 }
 
+
 #pragma endregion
 
 #pragma region CUSTOM
 
-htmlkit_container::htmlkit_container(const std::string& base_url, const container_info& info,
-                                     PyObject* log_fn): m_base_url(base_url), m_info(info), m_log_fn(log_fn) {
+htmlkit_container::htmlkit_container(const std::string& base_url, const container_info& info): m_base_url(base_url),
+    m_info(info) {
     m_temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 2, 2);
     m_temp_cr = cairo_create(m_temp_surface);
     cairo_save(m_temp_cr);
@@ -1138,55 +1147,52 @@ htmlkit_container::~htmlkit_container() {
 }
 
 void htmlkit_container::make_url(const char* url, const char* base_url, litehtml::string& out) {
-    if (m_log_fn && PyCallable_Check(m_log_fn)) {
-        if (PyObject_CallFunction(m_log_fn, "s, s, s", "core.container.make_url", url, base_url) == nullptr) {
-            PyErr_Print();
-            PyErr_Clear();
-        }
-    }
+    printf("core.container.make_url %s, %s\n", url, base_url);
     out = url;
 }
 
 void htmlkit_container::set_base_url(const char* base_url) {
-    if (m_log_fn && PyCallable_Check(m_log_fn)) {
-        if (PyObject_CallFunction(m_log_fn, "s, s", "core.container.set_base_url", base_url) == nullptr) {
-            PyErr_Print();
-            PyErr_Clear();
-        }
-    }
+    printf("core.container.set_base_url %s, %s\n", base_url, base_url);
     m_base_url = base_url;
 }
 
 
 void htmlkit_container::load_image(const char* src, const char* baseurl, bool redraw_on_ready) {
-    if (m_log_fn && PyCallable_Check(m_log_fn)) {
-        if (PyObject_CallFunction(m_log_fn, "s, s, s, s", "core.container.load_image", src, baseurl,
-                                  redraw_on_ready ? "true" : "false") == nullptr) {
-            PyErr_Print();
-            PyErr_Clear();
-        }
-    }
+    printf("core.container.load_image %s, %s, %d\n", src, baseurl, redraw_on_ready);
 }
 
 
 cairo_surface_t* htmlkit_container::get_image(const std::string& url) {
-    if (m_log_fn && PyCallable_Check(m_log_fn)) {
-        if (PyObject_CallFunction(m_log_fn, "s, s", "core.container.get_image", url.c_str()) == nullptr) {
-            PyErr_Print();
-            PyErr_Clear();
-        }
-    }
+    printf("core.container.get_image %s, %s\n", url.c_str(), m_base_url.c_str());
     return nullptr;
 }
 
-void htmlkit_container::import_css(litehtml::string& text, const litehtml::string& url, litehtml::string& baseurl) {
-    if (m_log_fn && PyCallable_Check(m_log_fn)) {
-        if (PyObject_CallFunction(m_log_fn, "s, s, s", "core.container.import_css", url.c_str(),
-                                  baseurl.c_str()) == nullptr) {
-            PyErr_Print();
-            PyErr_Clear();
+std::function<void()> htmlkit_container::import_css(const litehtml::string& url, const litehtml::string& baseurl,
+                                                    const std::function<void(
+                                                        const litehtml::string& css_text,
+                                                        const litehtml::string& new_baseurl)>& on_imported) {
+    printf("Scheduling import of %s\n", url.c_str());
+    return [=]() {
+        printf("Returning result of %s\n", url.c_str());
+        if (url == "x.css") {
+            on_imported("", baseurl);
         }
-    }
+        else if (url == "y.css") {
+            on_imported("", baseurl);
+        }
+        else if (url == "z.css") {
+            on_imported("", baseurl);
+        }
+        else {
+            on_imported("", baseurl);
+        }
+        printf("Importing complete\n");
+    };
+}
+
+void htmlkit_container::split_text(const char* text, const std::function<void(const char*)>& on_word,
+                                   const std::function<void(const char*)>& on_space) {
+    document_container::split_text(text, on_word, on_space);
 }
 
 
