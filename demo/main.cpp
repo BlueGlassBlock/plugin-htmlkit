@@ -156,11 +156,11 @@ void render_htmlkit(std::string file, int width) {
 	container_info info;
 	info.dpi = 96.0;
 	info.default_font_size_pt = 12.0;
-	info.width = width;
+	info.width = 1920;
 	info.height = 1080;
 	info.default_font_name = "sans-serif";
-	info.language = "en";
-	info.culture = "US";
+	info.language = "zh";
+	info.culture = "CN";
 	info.font_options = cairo_font_options_create();
 	cairo_font_options_set_antialias(info.font_options, CAIRO_ANTIALIAS_DEFAULT);
 	cairo_font_options_set_hint_style(info.font_options, CAIRO_HINT_STYLE_NONE);
@@ -172,7 +172,7 @@ void render_htmlkit(std::string file, int width) {
 		file, &container, litehtml::master_css, "html {background-color: #fff;}");
 
 	auto start = std::chrono::high_resolution_clock::now();
-	int best_width = width == -1 ? doc->render(1080) : width;
+	int best_width = width == -1 ? doc->render(1920) : width;
 	doc->render(best_width);
 	cairo_t *cr = cairo_create(
 		cairo_image_surface_create(CAIRO_FORMAT_ARGB32, best_width, doc->content_height()));

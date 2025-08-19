@@ -34,36 +34,33 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("cairo", "pango", "litehtml_local", "python 3.9.x")
-
+add_requires("litehtml_local", "pango", "cairo", "python 3.9.x", "uriparser ^0.9.8")
 set_languages("c++17")
 
 add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
 
-target("demo")
-    add_packages("litehtml_local", "cairo", "pango", "python")
-    set_kind("binary")
-    add_files("demo/*.cpp")
+function require_htmlkit()
+    add_packages("litehtml_local", "cairo", "pango", "python", "uriparser")
     add_files("core/*.cpp")
-    add_includedirs("core", {public = true})
-    add_defines("UNICODE")
+    add_defines("UNICODE", "PY_SSIZE_T_CLEAN")
+    if is_plat("windows") then
+        add_links("Dwrite")
+    end
+end
 
+target("demo")
+    require_htmlkit()
+    set_kind("binary")
+    add_includedirs("core")
+    add_files("demo/*.cpp")
     if is_plat("windows") then
         add_links("OleAut32")
-        add_links("Dwrite")
     end
 
 target("core")
     set_prefixdir("$(prefixdir)/$(pythondir)", { bindir = "nonebot_plugin_htmlkit", libdir = "" })
-    add_packages("litehtml_local", "cairo", "pango", "python")
     add_rules("python.module", {soabi = "true"})
-    add_files("core/*.cpp")
-    add_defines("UNICODE")
-
-    if is_plat("windows") then
-        add_links("Dwrite")
-    end
-
+    require_htmlkit()
     add_installfiles("(nonebot_plugin_htmlkit/**)", {prefixdir= "$(pythondir)"})
     add_installfiles("LICENSE", {prefixdir= "$(metadatadir)"})
     add_installfiles("README.md", {prefixdir= "$(metadatadir)"})

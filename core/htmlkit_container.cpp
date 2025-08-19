@@ -1,12 +1,12 @@
 #include "htmlkit_container.h"
 #include "cairo_wrapper.h"
 #include <array>
+#include <uriparser/Uri.h>
 #include <pango/pango.h>
 #include <pango/pango-font.h>
 #include <pango/pangocairo.h>
 
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
+#include <chrono>
 
 #pragma region BLANKET_IMPLS
 
@@ -37,10 +37,7 @@ litehtml::pixel_t htmlkit_container::get_default_font_size() const {
 
 void htmlkit_container::draw_list_marker(litehtml::uint_ptr hdc, const litehtml::list_marker& marker) {
     if (!marker.image.empty()) {
-        litehtml::string url;
-        make_url(marker.image.c_str(), marker.baseurl, url);
-
-        auto img = get_image(url);
+        auto img = get_image(marker.image.c_str(), marker.baseurl);
         if (img) {
             draw_bmp((cairo_t*)hdc, img, marker.pos.x, marker.pos.y, cairo_image_surface_get_width(img),
                      cairo_image_surface_get_height(img));
@@ -79,10 +76,7 @@ void htmlkit_container::draw_list_marker(litehtml::uint_ptr hdc, const litehtml:
 }
 
 void htmlkit_container::get_image_size(const char* src, const char* baseurl, litehtml::size& sz) {
-    litehtml::string url;
-    make_url(src, baseurl, url);
-
-    auto img = get_image(url);
+    auto img = get_image(src, baseurl);
     if (img) {
         sz.width = cairo_image_surface_get_width(img);
         sz.height = cairo_image_surface_get_height(img);
@@ -114,10 +108,7 @@ void htmlkit_container::draw_image(litehtml::uint_ptr hdc, const litehtml::backg
 
     clip_background_layer(cr, layer);
 
-    std::string img_url;
-    make_url(url.c_str(), base_url.c_str(), img_url);
-
-    auto bgbmp = get_image(img_url);
+    auto bgbmp = get_image(url.c_str(), base_url.c_str());
     if (bgbmp) {
         int image_width = litehtml::round_f(layer.origin_box.width);
         int image_height = litehtml::round_f(layer.origin_box.height);
@@ -1140,30 +1131,112 @@ htmlkit_container::htmlkit_container(const std::string& base_url, const containe
     g_object_unref(layout);
 }
 
-
 htmlkit_container::~htmlkit_container() {
     cairo_surface_destroy(m_temp_surface);
     cairo_destroy(m_temp_cr);
-}
-
-void htmlkit_container::make_url(const char* url, const char* base_url, litehtml::string& out) {
-    printf("core.container.make_url %s, %s\n", url, base_url);
-    out = url;
+    for (auto& [_, surface] : m_img_surfaces) {
+        cairo_surface_destroy(surface);
+    }
 }
 
 void htmlkit_container::set_base_url(const char* base_url) {
-    printf("core.container.set_base_url %s, %s\n", base_url, base_url);
-    m_base_url = base_url;
+    if (base_url != nullptr) {
+        m_base_url = base_url;
+    }
 }
 
 
 void htmlkit_container::load_image(const char* src, const char* baseurl, bool redraw_on_ready) {
-    printf("core.container.load_image %s, %s, %d\n", src, baseurl, redraw_on_ready);
+    if (src == nullptr) {
+        src = "";
+    }
+    if (baseurl == nullptr) {
+        baseurl = m_base_url.c_str();
+    }
+    printf("load_image %s %s\n", src, baseurl);
+    if (m_img_fetch_fn == nullptr) {
+        return;
+    }
+    const auto gil = PyGILState_Ensure();
+    PyObject* awaitable = PyObject_CallFunction(m_img_fetch_fn, "ss", src, baseurl);
+    if (awaitable == nullptr) {
+        handle_exception();
+        return;
+    }
+    printf("run_coroutine_threadsafe\n");
+
+    PyObject* future = PyObject_CallFunctionObjArgs(asyncio_run_coroutine_threadsafe, awaitable, m_loop);
+    if (future == nullptr) {
+        handle_exception();
+        return;
+    }
+
+    Py_DECREF(awaitable);
+    auto waiter = std::make_unique<PyWaiter>();
+    if (!attach_waiter(future, waiter.get())) {
+        Py_DECREF(future);
+        handle_exception();
+        return;
+    }
+    Py_DECREF(future);
+    PyGILState_Release(gil);
+    m_img_fetch_waiters.emplace_back(src, baseurl, std::move(waiter));
+}
+
+void htmlkit_container::process_images() {
+    printf("Process images\n");
+    const auto gil = PyGILState_Ensure();
+    for (auto& [src, baseurl, future] : m_img_fetch_waiters) {
+        printf("Waiting for waiter %s %s\n", src.c_str(), baseurl.c_str());
+        PyObject* image = waiter_wait(future);
+        if (image == nullptr) {
+            handle_exception();
+            continue;
+        }
+        if (!PyBytes_Check(image)) {
+            Py_DECREF(image);
+            continue;
+        }
+        char* buf;
+        Py_ssize_t size;
+        if (PyBytes_AsStringAndSize(image, &buf, &size) < 0) {
+            Py_DECREF(image);
+            handle_exception();
+            continue;
+        }
+        // PNG magic
+        if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
+            printf("Got PNG\n");
+            cairo_wrapper::BufferView view{buf, size, 0};
+            cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(cairo_wrapper::read_from_view, &view);
+            Py_DECREF(image);
+            if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+                printf("Read failed\n");
+                cairo_surface_destroy(surface);
+                continue;
+            }
+            m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
+        }
+        Py_DECREF(image);
+    }
+    PyGILState_Release(gil);
+    m_img_fetch_waiters.clear();
 }
 
 
-cairo_surface_t* htmlkit_container::get_image(const std::string& url) {
-    printf("core.container.get_image %s, %s\n", url.c_str(), m_base_url.c_str());
+cairo_surface_t* htmlkit_container::get_image(const char* url, const char* baseurl) {
+    if (url == nullptr) {
+        url = "";
+    }
+    if (baseurl == nullptr) {
+        baseurl = m_base_url.c_str();
+    }
+    printf("get_image %s %s\n", url, baseurl);
+    process_images();
+    auto surface_it = m_img_surfaces.find(std::make_tuple(url, baseurl));
+    if (surface_it != m_img_surfaces.end()) {
+        return cairo_surface_reference(surface_it->second);
+    }
     return nullptr;
 }
 
@@ -1190,9 +1263,25 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
     };
 }
 
-void htmlkit_container::split_text(const char* text, const std::function<void(const char*)>& on_word,
-                                   const std::function<void(const char*)>& on_space) {
-    document_container::split_text(text, on_word, on_space);
+void htmlkit_container::handle_exception() const {
+    if (exception_logger == nullptr) {
+        PyErr_Print();
+        return;
+    }
+    PyObject *exc_ty, *exc_val, *exc_tb;
+    PyErr_Fetch(&exc_ty, &exc_val, &exc_tb);
+    if (exc_ty == nullptr) {
+        return;
+    }
+    PyErr_NormalizeException(&exc_ty, &exc_val, &exc_tb);
+    if (exc_tb != nullptr) {
+        PyException_SetTraceback(exc_val, exc_tb);
+    }
+    PyObject* log_result = PyObject_CallFunction(exception_logger, "OOO", exc_ty, exc_val, exc_tb);
+    if (log_result == nullptr) {
+        PyErr_Restore(exc_ty, exc_val, exc_tb);
+        PyErr_Print();
+    }
 }
 
 

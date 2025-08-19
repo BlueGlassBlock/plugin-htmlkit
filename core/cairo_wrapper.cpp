@@ -384,7 +384,7 @@ cairo_pattern_t* conic_gradient::create_pattern(double angle, double radius,
 }
 
 // closure is pointer to PyObject* that will hold the bytes object
-cairo_status_t cairo_wrapper::write_png_to_vec(void* closure, const unsigned char* data, unsigned int length) {
+cairo_status_t cairo_wrapper::write_to_vector(void* closure, const unsigned char* data, unsigned int length) {
     auto* vec = static_cast<std::vector<unsigned char>*>(closure);
     if (!vec) {
         return CAIRO_STATUS_DEVICE_ERROR;
@@ -397,5 +397,18 @@ cairo_status_t cairo_wrapper::write_png_to_vec(void* closure, const unsigned cha
     } catch (...) {
         return CAIRO_STATUS_DEVICE_ERROR;
     }
+    return CAIRO_STATUS_SUCCESS;
+}
+
+cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffer, unsigned int length) {
+    BufferView* view = static_cast<BufferView*>(closure);
+    if (!view || view->size <= 0 || !view->data || view->offset < 0 || view->offset > view->size) {
+        return CAIRO_STATUS_READ_ERROR;
+    }
+    if (view->offset + length > view->size) {
+        return CAIRO_STATUS_READ_ERROR;
+    }
+    memcpy((void*)buffer, view->data + view->offset, length);
+    view->offset += length;
     return CAIRO_STATUS_SUCCESS;
 }

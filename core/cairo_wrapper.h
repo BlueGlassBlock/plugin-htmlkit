@@ -7,7 +7,6 @@
 #include "pango/pango-font.h"
 #include <vector>
 
-#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #ifndef M_PI
@@ -186,7 +185,14 @@ namespace cairo_wrapper
                                                        const std::vector<bg_color_point>& color_points);
     }
 
-    cairo_status_t write_png_to_vec(void* closure, const unsigned char* data, unsigned int length);
+    struct BufferView {
+        const char* data;
+        ssize_t size;
+        ssize_t offset;
+    };
+
+    cairo_status_t write_to_vector(void* closure, const unsigned char* data, unsigned int length);
+    cairo_status_t read_from_view(void* closure, unsigned char* buffer, unsigned int length);
 }
 
 

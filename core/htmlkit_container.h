@@ -3,9 +3,14 @@
 
 #include <litehtml.h>
 #include <set>
+#include <map>
+#include <utility>
+#include <cairo.h>
+#include <Python.h>
+
 #include "cairo_wrapper.h"
 #include "container_info.h"
-#include "cairo.h"
+#include "py_synchron.h"
 
 class htmlkit_container final : public litehtml::document_container {
     cairo_wrapper::clip_box::vector m_clips;
@@ -16,7 +21,14 @@ class htmlkit_container final : public litehtml::document_container {
 
     container_info m_info;
 
+    std::vector<std::tuple<std::string, std::string, std::unique_ptr<PyWaiter>>> m_img_fetch_waiters;
+    std::map<std::tuple<std::string, std::string>, cairo_surface_t*> m_img_surfaces;
+
 public:
+    PyObject *m_img_fetch_fn, *m_css_fetch_fn, *m_loop;
+    PyObject *asyncio_run_coroutine_threadsafe, *exception_logger;
+
+
     htmlkit_container(const std::string& base_url, const container_info& info);
     ~htmlkit_container() override;
 
@@ -61,17 +73,20 @@ public:
     litehtml::element::ptr create_element(const char* tag_name, const litehtml::string_map& attributes,
                                           const std::shared_ptr<litehtml::document>& doc) override;
     // litehtml::string resolve_color(const litehtml::string&) const override;
-    void split_text(const char* text, const std::function<void(const char*)>& on_word, const std::function<void(const char*)>& on_space) override;
+    // void split_text(const char* text, const std::function<void(const char*)>& on_word, const std::function<void(const char*)>& on_space) override;
 
-    std::function<void()> import_css(const litehtml::string& url, const litehtml::string& baseurl, const std::function<void(const litehtml::string& css_text, const litehtml::string& new_baseurl)>& on_imported) override;
-    void make_url(const char* url, const char* base_url,
-                  litehtml::string& out);
-    cairo_surface_t* get_image(const std::string& url);
+    std::function<void()> import_css(const litehtml::string& url, const litehtml::string& baseurl,
+                                     const std::function<void(const litehtml::string& css_text,
+                                                              const litehtml::string& new_baseurl)>&
+                                     on_imported) override;
+    cairo_surface_t* get_image(const char* url, const char* baseurl);
 
 protected:
-    void draw_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width, litehtml::pixel_t height,
+    void draw_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                      litehtml::pixel_t height,
                       const litehtml::web_color& color, litehtml::pixel_t line_width);
-    void fill_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width, litehtml::pixel_t height,
+    void fill_ellipse(cairo_t* cr, litehtml::pixel_t x, litehtml::pixel_t y, litehtml::pixel_t width,
+                      litehtml::pixel_t height,
                       const litehtml::web_color& color);
     void rounded_rectangle(cairo_t* cr, const litehtml::position& pos,
                            const litehtml::border_radiuses& radius);
@@ -92,6 +107,8 @@ private:
                          int cx, int cy);
     static cairo_surface_t* scale_surface(cairo_surface_t* surface, int width,
                                           int height);
+    void process_images();
+    void handle_exception() const;
 };
 
 
