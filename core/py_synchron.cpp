@@ -70,7 +70,7 @@ bool attach_waiter(PyObject* py_future, PyWaiter* waiter) {
     return true;
 }
 
-PyObject* waiter_wait(const std::unique_ptr<PyWaiter>& waiter) {
+PyObject* waiter_wait(PyWaiter* waiter) {
     Py_BEGIN_ALLOW_THREADS
         std::unique_lock lock(waiter->mtx);
         waiter->cv.wait(lock, [&] { return waiter->done; });

@@ -1114,7 +1114,17 @@ htmlkit_container::htmlkit_container(const std::string& base_url, const containe
     m_temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 2, 2);
     m_temp_cr = cairo_create(m_temp_surface);
     cairo_save(m_temp_cr);
+    auto fontmap_start_time = std::chrono::high_resolution_clock::now();
+    pango_cairo_font_map_get_default();
+    auto fontmap_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> diff = fontmap_end_time - fontmap_start_time;
+    printf("Pango fontmap init time: %f ms\n", diff.count());
+
+    auto layout_start_time = std::chrono::high_resolution_clock::now();
     PangoLayout* layout = pango_cairo_create_layout(m_temp_cr);
+    auto layout_end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double, std::milli> diff_2 = layout_end_time - layout_start_time;
+    printf("Pango layout init time: %f ms\n", diff_2.count());
     PangoContext* context = pango_layout_get_context(layout);
     PangoFontFamily** families;
     int n;
@@ -1157,50 +1167,47 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
     if (m_img_fetch_fn == nullptr) {
         return;
     }
-    const auto gil = PyGILState_Ensure();
-    PyObject* awaitable = PyObject_CallFunction(m_img_fetch_fn, "ss", src, baseurl);
+    GILState gil;
+    const PyObjectPtr awaitable(PyObject_CallFunction(m_img_fetch_fn, "ss", src, baseurl));
     if (awaitable == nullptr) {
         handle_exception();
         return;
     }
-    printf("run_coroutine_threadsafe\n");
 
-    PyObject* future = PyObject_CallFunctionObjArgs(asyncio_run_coroutine_threadsafe, awaitable, m_loop);
+    const PyObjectPtr future(PyObject_CallFunctionObjArgs(asyncio_run_coroutine_threadsafe, awaitable.ptr, m_loop, nullptr));
     if (future == nullptr) {
         handle_exception();
         return;
     }
 
-    Py_DECREF(awaitable);
     auto waiter = std::make_unique<PyWaiter>();
-    if (!attach_waiter(future, waiter.get())) {
-        Py_DECREF(future);
+    if (!attach_waiter(future.ptr, waiter.get())) {
         handle_exception();
         return;
     }
-    Py_DECREF(future);
-    PyGILState_Release(gil);
     m_img_fetch_waiters.emplace_back(src, baseurl, std::move(waiter));
 }
 
 void htmlkit_container::process_images() {
     printf("Process images\n");
-    const auto gil = PyGILState_Ensure();
-    for (auto& [src, baseurl, future] : m_img_fetch_waiters) {
+    GILState gil;
+    for (auto& [src, baseurl, waiter] : m_img_fetch_waiters) {
         printf("Waiting for waiter %s %s\n", src.c_str(), baseurl.c_str());
-        PyObject* image = waiter_wait(future);
+        PyObjectPtr image(waiter_wait(waiter.get()));
         if (image == nullptr) {
+            printf("call failed\n");
             handle_exception();
             continue;
         }
-        if (!PyBytes_Check(image)) {
-            Py_DECREF(image);
+        if (!PyBytes_Check(image.ptr)) {
+            PyObject_Print(image.ptr, stdout, 0);
+            printf("not bytes\n");
             continue;
         }
         char* buf;
         Py_ssize_t size;
-        if (PyBytes_AsStringAndSize(image, &buf, &size) < 0) {
-            Py_DECREF(image);
+        if (PyBytes_AsStringAndSize(image.ptr, &buf, &size) < 0) {
+            printf("invalid bytes\n");
             handle_exception();
             continue;
         }
@@ -1209,7 +1216,6 @@ void htmlkit_container::process_images() {
             printf("Got PNG\n");
             cairo_wrapper::BufferView view{buf, size, 0};
             cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(cairo_wrapper::read_from_view, &view);
-            Py_DECREF(image);
             if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
                 printf("Read failed\n");
                 cairo_surface_destroy(surface);
@@ -1217,9 +1223,7 @@ void htmlkit_container::process_images() {
             }
             m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
         }
-        Py_DECREF(image);
     }
-    PyGILState_Release(gil);
     m_img_fetch_waiters.clear();
 }
 
@@ -1245,21 +1249,50 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
                                                         const litehtml::string& css_text,
                                                         const litehtml::string& new_baseurl)>& on_imported) {
     printf("Scheduling import of %s\n", url.c_str());
+    auto empty = [=]() { on_imported("", baseurl); };
+    if (m_css_fetch_fn == nullptr) {
+        return empty;
+    }
+
+    GILState gil;
+    PyObjectPtr awaitable(PyObject_CallFunction(m_css_fetch_fn, "ss", url.c_str(), baseurl.c_str()));
+    if (awaitable == nullptr) {
+        handle_exception();
+        return empty;
+    }
+    PyObjectPtr future(PyObject_CallFunctionObjArgs(asyncio_run_coroutine_threadsafe, awaitable.ptr, m_loop, nullptr));
+    if (future == nullptr) {
+        handle_exception();
+        return empty;
+    }
+    auto waiter = std::make_shared<PyWaiter>();
+    if (!attach_waiter(future.ptr, waiter.get())) {
+        handle_exception();
+        return empty;
+    }
+
     return [=]() {
-        printf("Returning result of %s\n", url.c_str());
-        if (url == "x.css") {
+        GILState gil_inner;
+        PyObjectPtr css_text(waiter_wait(waiter.get()));
+        if (css_text == nullptr) {
+            handle_exception();
             on_imported("", baseurl);
+            return;
         }
-        else if (url == "y.css") {
+        if (!PyUnicode_Check(css_text.ptr)) {
+            handle_exception();
             on_imported("", baseurl);
+            return;
         }
-        else if (url == "z.css") {
+        // TODO: handle baseurl leveling automatically
+        Py_ssize_t len;
+        const char* css_str = PyUnicode_AsUTF8AndSize(css_text.ptr, &len);
+        if (css_str == nullptr) {
+            handle_exception();
             on_imported("", baseurl);
+            return;
         }
-        else {
-            on_imported("", baseurl);
-        }
-        printf("Importing complete\n");
+        on_imported(litehtml::string(css_str, (size_t)len), baseurl);
     };
 }
 

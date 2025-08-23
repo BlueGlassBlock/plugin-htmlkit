@@ -49,15 +49,14 @@ static const char* fc_config_windows = R"(<?xml version="1.0"?>
 
 extern "C" {
     static PyObject* render(PyObject* mod, PyObject* args) {
-        PyObject *exception_fn = nullptr, *asyncio_run_coroutine_threadsafe = nullptr, *asyncio_loop = nullptr, *
-                     img_fetch_fn
-                     = nullptr;
+        PyObject *exception_fn = nullptr, *asyncio_run_coroutine_threadsafe = nullptr, *asyncio_loop = nullptr,
+                 *img_fetch_fn = nullptr, *css_fetch_fn = nullptr;
         const char *font_name, *lang, *culture, *html_content, *base_url;
         int arg_dpi, arg_width, arg_height, default_font_size;
         container_info info;
-        if (!PyArg_ParseTuple(args, "ssiiiisssOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
+        if (!PyArg_ParseTuple(args, "ssiiiisssOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
                               &default_font_size, &font_name, &lang, &culture, &exception_fn,
-                              &asyncio_run_coroutine_threadsafe, &asyncio_loop, &img_fetch_fn)) {
+                              &asyncio_run_coroutine_threadsafe, &asyncio_loop, &img_fetch_fn, &css_fetch_fn)) {
             return nullptr;
         }
         info.dpi = arg_dpi;
@@ -124,6 +123,7 @@ extern "C" {
             container.m_loop = asyncio_loop;
             container.m_img_fetch_fn = img_fetch_fn;
             container.exception_logger = exception_fn;
+            container.m_css_fetch_fn = css_fetch_fn;
 
             record_now("container_create");
 
@@ -179,7 +179,8 @@ extern "C" {
                 Py_DECREF(bytes_obj);
                 return bail(gil);
             }
-            PyObject* call_soon_result = PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_result, bytes_obj);
+            PyObject* call_soon_result = PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_result,
+                                                             bytes_obj);
             if (call_soon_result == nullptr) {
                 Py_DECREF(bytes_obj);
                 Py_DECREF(set_result);
