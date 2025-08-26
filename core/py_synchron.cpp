@@ -1,4 +1,6 @@
 #include "py_synchron.h"
+
+#include <chrono>
 #include <Python.h>
 #include <mutex>
 #include <condition_variable>
@@ -13,8 +15,10 @@ extern "C" {
         auto* waiter = static_cast<PyWaiter*>(PyCapsule_GetPointer(self, "PyWaiter"));
         if (waiter == nullptr) {
             PyErr_SetString(PyExc_RuntimeError, "PyWaiter capsule invalid");
+            printf("INVALID WAITER\n");
             return nullptr;
         }
+        printf("invoke waiter %s\n", waiter->name.c_str());
         if (PyObject* result = PyObject_CallMethod(py_future, "result", nullptr); result != nullptr) {
             std::unique_lock lock(waiter->mtx);
             waiter->result = result; // steal reference
@@ -41,6 +45,7 @@ extern "C" {
             lock.unlock();
             waiter->cv.notify_one();
         }
+        printf("invoke successful %s\n", waiter->name.c_str());
         Py_RETURN_NONE;
     }
 
@@ -72,8 +77,13 @@ bool attach_waiter(PyObject* py_future, PyWaiter* waiter) {
 
 PyObject* waiter_wait(PyWaiter* waiter) {
     Py_BEGIN_ALLOW_THREADS
+        auto start = std::chrono::high_resolution_clock::now();
+        printf("starting to wait for %s\n", waiter->name.c_str());
         std::unique_lock lock(waiter->mtx);
         waiter->cv.wait(lock, [&] { return waiter->done; });
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        printf("waiter %s done after %lld ms\n", waiter->name.c_str(), duration);
     Py_END_ALLOW_THREADS
 
     if (waiter->result != nullptr) {

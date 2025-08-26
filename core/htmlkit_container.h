@@ -26,7 +26,7 @@ class htmlkit_container final : public litehtml::document_container {
 
 public:
     PyObject *m_img_fetch_fn, *m_css_fetch_fn, *m_loop;
-    PyObject *asyncio_run_coroutine_threadsafe, *exception_logger;
+    PyObject *asyncio_run_coroutine_threadsafe, *exception_logger, *urljoin;
 
 
     htmlkit_container(const std::string& base_url, const container_info& info);
@@ -109,6 +109,7 @@ private:
                                           int height);
     void process_images();
     void handle_exception() const;
+    const char* call_urljoin(const char* base, const char* url);
 };
 
 

@@ -6,57 +6,20 @@
 #include <litehtml.h>
 
 #include "container_info.h"
+#include "font_wrapper.h"
 #include "htmlkit_container.h"
-
-
-static const char* fc_config_windows = R"(<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-<fontconfig>
-	<cachedir>C:/Users/blueg/AppData/Local/Temp/htmlkit_fontconfig</cachedir>
-	<dir>C:/Windows/Fonts</dir>
-	<alias>
-		<family>serif</family>
-		<prefer>
-			<family>Noto Serif</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>sans-serif</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>fantasy</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>cursive</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>monospace</family>
-		<prefer>
-			<family>Noto Sans Mono</family>
-		</prefer>
-	</alias>
-</fontconfig>
-)";
 
 extern "C" {
     static PyObject* render(PyObject* mod, PyObject* args) {
-        PyObject *exception_fn = nullptr, *asyncio_run_coroutine_threadsafe = nullptr, *asyncio_loop = nullptr,
-                 *img_fetch_fn = nullptr, *css_fetch_fn = nullptr;
+        PyObject *exception_fn = nullptr, *asyncio_run_coroutine_threadsafe = nullptr, *urljoin = nullptr,
+                 *asyncio_loop = nullptr, *img_fetch_fn = nullptr, *css_fetch_fn = nullptr;
         const char *font_name, *lang, *culture, *html_content, *base_url;
         int arg_dpi, arg_width, arg_height, default_font_size;
         container_info info;
-        if (!PyArg_ParseTuple(args, "ssiiiisssOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
+        if (!PyArg_ParseTuple(args, "ssiiiisssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
                               &default_font_size, &font_name, &lang, &culture, &exception_fn,
-                              &asyncio_run_coroutine_threadsafe, &asyncio_loop, &img_fetch_fn, &css_fetch_fn)) {
+                              &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop, &img_fetch_fn,
+                              &css_fetch_fn)) {
             return nullptr;
         }
         info.dpi = arg_dpi;
@@ -101,24 +64,13 @@ extern "C" {
 
             record_now("start");
 
-            FcConfig* fc = FcConfigCreate();
-            if (FcConfigParseAndLoadFromMemory(fc, (FcChar8*)fc_config_windows, FcTrue) != FcTrue) {
-                const auto gil = PyGILState_Ensure();
-                PyErr_SetString(PyExc_RuntimeError, "Could not load fontconfig");
-                return bail(gil);
-            }
-            record_now("fc_create");
-            if (FcConfigSetCurrent(fc) != FcTrue) {
-                const auto gil = PyGILState_Ensure();
-                PyErr_SetString(PyExc_RuntimeError, "Could not set current fontconfig");
-                return bail(gil);
-            }
-            record_now("fc_set");
+            PangoFontMap* font_map = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
+            pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(font_map));
 
-
-            record_now("font_option_create");
+            record_now("create_font_map");
 
             htmlkit_container container(base_url_str, info);
+            container.urljoin = urljoin;
             container.asyncio_run_coroutine_threadsafe = asyncio_run_coroutine_threadsafe;
             container.m_loop = asyncio_loop;
             container.m_img_fetch_fn = img_fetch_fn;
@@ -207,7 +159,10 @@ extern "C" {
         return future;
     }
 
-    static PyObject* setup_fontconfig(PyObject* mod, PyObject* args) {}
+    static PyObject* setup_fontconfig(PyObject* mod, PyObject* args) {
+        init_fontconfig();
+        Py_RETURN_NONE;
+    }
 
     static PyMethodDef methods[] = {
         {
@@ -215,6 +170,12 @@ extern "C" {
             /*.ml_meth = */render,
             /*.ml_flags = */METH_VARARGS,
             /*.ml_doc = */"Core function for rendering HTML page."
+        },
+        {
+            /* .ml_name = */ "setup_fontconfig",
+            /*.ml_meth = */setup_fontconfig,
+            /*.ml_flags = */METH_VARARGS,
+            /*.ml_doc = */"Setup fontconfig if not already initialized."
         },
         {
             nullptr, nullptr, 0, nullptr

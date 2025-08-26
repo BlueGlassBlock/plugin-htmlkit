@@ -1114,17 +1114,7 @@ htmlkit_container::htmlkit_container(const std::string& base_url, const containe
     m_temp_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 2, 2);
     m_temp_cr = cairo_create(m_temp_surface);
     cairo_save(m_temp_cr);
-    auto fontmap_start_time = std::chrono::high_resolution_clock::now();
-    pango_cairo_font_map_get_default();
-    auto fontmap_end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> diff = fontmap_end_time - fontmap_start_time;
-    printf("Pango fontmap init time: %f ms\n", diff.count());
-
-    auto layout_start_time = std::chrono::high_resolution_clock::now();
     PangoLayout* layout = pango_cairo_create_layout(m_temp_cr);
-    auto layout_end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> diff_2 = layout_end_time - layout_start_time;
-    printf("Pango layout init time: %f ms\n", diff_2.count());
     PangoContext* context = pango_layout_get_context(layout);
     PangoFontFamily** families;
     int n;
@@ -1160,7 +1150,7 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
     if (src == nullptr) {
         src = "";
     }
-    if (baseurl == nullptr) {
+    if (baseurl == nullptr || baseurl == "" || !baseurl[0]) {
         baseurl = m_base_url.c_str();
     }
     printf("load_image %s %s\n", src, baseurl);
@@ -1168,7 +1158,8 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
         return;
     }
     GILState gil;
-    const PyObjectPtr awaitable(PyObject_CallFunction(m_img_fetch_fn, "ss", src, baseurl));
+    const char* joined_url = call_urljoin(baseurl, src);
+    const PyObjectPtr awaitable(PyObject_CallFunction(m_img_fetch_fn, "s", joined_url));
     if (awaitable == nullptr) {
         handle_exception();
         return;
@@ -1181,6 +1172,7 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
     }
 
     auto waiter = std::make_unique<PyWaiter>();
+    waiter->name = "load_image " + std::string(src);
     if (!attach_waiter(future.ptr, waiter.get())) {
         handle_exception();
         return;
@@ -1189,13 +1181,10 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
 }
 
 void htmlkit_container::process_images() {
-    printf("Process images\n");
     GILState gil;
     for (auto& [src, baseurl, waiter] : m_img_fetch_waiters) {
-        printf("Waiting for waiter %s %s\n", src.c_str(), baseurl.c_str());
         PyObjectPtr image(waiter_wait(waiter.get()));
         if (image == nullptr) {
-            printf("call failed\n");
             handle_exception();
             continue;
         }
@@ -1232,10 +1221,9 @@ cairo_surface_t* htmlkit_container::get_image(const char* url, const char* baseu
     if (url == nullptr) {
         url = "";
     }
-    if (baseurl == nullptr) {
+    if (baseurl == nullptr || baseurl == "" || !baseurl[0]) {
         baseurl = m_base_url.c_str();
     }
-    printf("get_image %s %s\n", url, baseurl);
     process_images();
     auto surface_it = m_img_surfaces.find(std::make_tuple(url, baseurl));
     if (surface_it != m_img_surfaces.end()) {
@@ -1255,7 +1243,8 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
     }
 
     GILState gil;
-    PyObjectPtr awaitable(PyObject_CallFunction(m_css_fetch_fn, "ss", url.c_str(), baseurl.c_str()));
+    std::string joined_url = call_urljoin(baseurl.c_str(), url.c_str());
+    const PyObjectPtr awaitable(PyObject_CallFunction(m_css_fetch_fn, "s", joined_url.c_str()));
     if (awaitable == nullptr) {
         handle_exception();
         return empty;
@@ -1266,6 +1255,7 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
         return empty;
     }
     auto waiter = std::make_shared<PyWaiter>();
+    waiter->name = "import_css " + joined_url;
     if (!attach_waiter(future.ptr, waiter.get())) {
         handle_exception();
         return empty;
@@ -1276,23 +1266,22 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
         PyObjectPtr css_text(waiter_wait(waiter.get()));
         if (css_text == nullptr) {
             handle_exception();
-            on_imported("", baseurl);
+            on_imported("", joined_url);
             return;
         }
         if (!PyUnicode_Check(css_text.ptr)) {
             handle_exception();
-            on_imported("", baseurl);
+            on_imported("", joined_url);
             return;
         }
-        // TODO: handle baseurl leveling automatically
         Py_ssize_t len;
         const char* css_str = PyUnicode_AsUTF8AndSize(css_text.ptr, &len);
         if (css_str == nullptr) {
             handle_exception();
-            on_imported("", baseurl);
+            on_imported("", joined_url);
             return;
         }
-        on_imported(litehtml::string(css_str, (size_t)len), baseurl);
+        on_imported(litehtml::string(css_str, (size_t)len), joined_url);
     };
 }
 
@@ -1315,6 +1304,20 @@ void htmlkit_container::handle_exception() const {
         PyErr_Restore(exc_ty, exc_val, exc_tb);
         PyErr_Print();
     }
+}
+
+const char* htmlkit_container::call_urljoin(const char* base, const char* url) {
+    const char* joined = nullptr;
+    const PyObjectPtr joined_url_obj(PyObject_CallFunction(urljoin, "ss", base, url));
+    if (joined_url_obj != nullptr) {
+        joined = PyUnicode_AsUTF8(joined_url_obj.ptr);
+    }
+    if (joined == nullptr) {
+        handle_exception();
+        joined = url;
+    }
+    printf("JOINED: %s %s %s\n", base, url, joined);
+    return joined;
 }
 
 

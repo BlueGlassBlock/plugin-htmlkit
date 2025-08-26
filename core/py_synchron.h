@@ -39,9 +39,14 @@ public:
     bool operator==(const nullptr_t p) const {
         return ptr == p;
     }
+
+    bool operator!=(const nullptr_t p) const {
+        return ptr != p;
+    }
 };
 
 struct PyWaiter {
+    std::string name;
     std::mutex mtx;
     std::condition_variable cv;
     bool done = false;

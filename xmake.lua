@@ -1,4 +1,4 @@
-add_rules("mode.debug", "mode.release")
+add_rules("mode.debug", "mode.release", "mode.releasedbg")
 
 package("litehtml_local")
     set_homepage("http://www.litehtml.com/")
@@ -34,7 +34,7 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "pango", "cairo", "python 3.9.x", "uriparser ^0.9.8")
+add_requires("litehtml_local", "pango", "cairo", "python 3.9.x", "uriparser")
 set_languages("c++17")
 
 add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
