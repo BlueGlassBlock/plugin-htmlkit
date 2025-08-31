@@ -1170,7 +1170,6 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
     if (baseurl == nullptr || baseurl == "" || !baseurl[0]) {
         baseurl = m_base_url.c_str();
     }
-    printf("load_image %s %s\n", src, baseurl);
     if (m_img_fetch_fn == nullptr) {
         return;
     }
@@ -1207,23 +1206,19 @@ void htmlkit_container::process_images() {
         }
         if (!PyBytes_Check(image.ptr)) {
             PyObject_Print(image.ptr, stdout, 0);
-            printf("not bytes\n");
             continue;
         }
         char* buf;
         Py_ssize_t size;
         if (PyBytes_AsStringAndSize(image.ptr, &buf, &size) < 0) {
-            printf("invalid bytes\n");
             handle_exception();
             continue;
         }
         // PNG magic
         if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
-            printf("Got PNG\n");
             cairo_wrapper::BufferView view{buf, size, 0};
             cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(cairo_wrapper::read_from_view, &view);
             if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-                printf("Read failed\n");
                 cairo_surface_destroy(surface);
                 continue;
             }
@@ -1253,7 +1248,6 @@ std::function<void()> htmlkit_container::import_css(const litehtml::string& url,
                                                     const std::function<void(
                                                         const litehtml::string& css_text,
                                                         const litehtml::string& new_baseurl)>& on_imported) {
-    printf("Scheduling import of %s\n", url.c_str());
     auto empty = [=]() { on_imported("", baseurl); };
     if (m_css_fetch_fn == nullptr) {
         return empty;
@@ -1333,7 +1327,6 @@ const char* htmlkit_container::call_urljoin(const char* base, const char* url) {
         handle_exception();
         joined = url;
     }
-    printf("JOINED: %s %s %s\n", base, url, joined);
     return joined;
 }
 

@@ -73,19 +73,8 @@ extern "C" {
                 PyGILState_Release(gil);
             };
 
-            auto time_points = std::vector<std::pair<std::string, std::chrono::high_resolution_clock::time_point>>(0);
-            auto record_now = [&time_points](std::string msg) {
-                printf("%s\n", msg.c_str());
-                time_points.emplace_back(msg, std::chrono::high_resolution_clock::now());
-            };
-
-            record_now("start");
-
             PangoFontMap* font_map = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
             pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(font_map));
-
-            record_now("create_font_map");
-
             htmlkit_container container(base_url_str, info);
             container.urljoin = urljoin;
             container.asyncio_run_coroutine_threadsafe = asyncio_run_coroutine_threadsafe;
@@ -93,23 +82,14 @@ extern "C" {
             container.m_img_fetch_fn = img_fetch_fn;
             container.exception_logger = exception_fn;
             container.m_css_fetch_fn = css_fetch_fn;
-
-            record_now("container_create");
-
             auto doc = litehtml::document::createFromString(html_content_str, &container, litehtml::master_css,
                                                             " html { background-color: #fff; }");
-
-            record_now("document_create");
-
             int width = arg_width;
             litehtml::pixel_t best_width = doc->render(arg_width);
             if (best_width < width) {
                 width = best_width;
                 doc->render(width);
             }
-
-            record_now("document_render");
-
             auto surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, doc->content_height());
             if (!surface) {
                 const auto gil = PyGILState_Ensure();
@@ -132,9 +112,6 @@ extern "C" {
 
             cairo_surface_flush(surface);
             cairo_destroy(cr);
-
-            record_now("complete_draw");
-
             std::vector<unsigned char> bytes;
             cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
 
@@ -159,18 +136,7 @@ extern "C" {
             Py_DECREF(set_result);
             Py_DECREF(call_soon_result);
             PyGILState_Release(gil);
-
-            record_now("write_to_stream");
-
             cairo_surface_destroy(surface);
-
-            for (size_t i = 1; i < time_points.size(); ++i) {
-                auto first_msg = time_points[i - 1].first, second_msg = time_points[i].first;
-                auto millisec = std::chrono::duration_cast<std::chrono::milliseconds>(
-                    time_points[i].second - time_points[i - 1].second).count();
-                printf("core.container.render_time %s -> %s: %lld ms\n", first_msg.c_str(), second_msg.c_str(),
-                       millisec);
-            }
             return;
         }).detach();
         return future;
