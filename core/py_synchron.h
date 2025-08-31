@@ -3,6 +3,7 @@
 
 #include <Python.h>
 #include <memory>
+#include <string>
 #include <mutex>
 #include <condition_variable>
 

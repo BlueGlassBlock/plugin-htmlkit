@@ -34,8 +34,11 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "pango", "cairo", "python 3.9.x")
+add_requires("litehtml_local", "python 3.9.x")
 set_languages("c++17")
+add_requires("pango", {configs = {shared = true}})
+add_requires("cairo", {configs = {shared = true}})
+add_requires("fontconfig", {configs = {shared = true}})
 
 add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
 
@@ -48,20 +51,9 @@ function require_htmlkit()
     end
 end
 
-target("demo")
-    require_htmlkit()
-    set_kind("binary")
-    add_includedirs("core")
-    add_files("demo/*.cpp")
-    if is_plat("windows") then
-        add_links("OleAut32")
-    end
-
 target("core")
-    set_prefixdir("$(prefixdir)/$(pythondir)", { bindir = "nonebot_plugin_htmlkit", libdir = "" })
-    add_rules("python.module", {soabi = "true"})
+    set_kind("shared")
+    set_prefixname("")
+    set_prefixdir("/", {bindir = ".", libdir = ".", includedir = "."})
+    set_extension(".dylib")
     require_htmlkit()
-    add_installfiles("(nonebot_plugin_htmlkit/**)", {prefixdir= "$(pythondir)"})
-    add_installfiles("LICENSE", {prefixdir= "$(metadatadir)"})
-    add_installfiles("README.md", {prefixdir= "$(metadatadir)"})
-    add_installfiles("pyproject.toml", {prefixdir= "$(metadatadir)"})

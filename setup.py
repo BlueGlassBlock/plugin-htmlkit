@@ -1,0 +1,94 @@
+from subprocess import check_call, check_output
+import json
+from pathlib import Path
+from shutil import copyfile
+
+from setuptools import Extension, setup
+from setuptools.command.egg_info import egg_info
+from setuptools.command.build_ext import build_ext, get_abi3_suffix
+from setuptools.command.sdist import sdist
+from setuptools.command.build_py import build_py
+
+
+def get_submodules(ref="HEAD"):
+    lock = Path("./gitmodules.lock")
+    if lock.exists():
+        with lock.open("r") as f:
+            return json.load(f)
+    out = check_output(["git", "ls-tree", ref], text=True)
+    submods = []
+    for line in out.splitlines():
+        mode, type_, commit, path = line.split(None, 3)
+        if mode == "160000" and type_ == "commit":
+            url = check_output(
+                ["git", "config", "-f", ".gitmodules", f"submodule.{path}.url"],
+                text=True,
+            ).strip()
+            submods.append([path, url, commit])
+    with lock.open("w") as f:
+        json.dump(submods, f, indent=2)
+    return submods
+
+
+def ensure_submodules(cmd):
+    for path, url, commit in get_submodules():
+        subdir = Path(path)
+        if not subdir.exists():
+            cmd.announce(f"Cloning {url} into {path} @ {commit}", level=3)
+            check_call(["git", "clone", url, path])
+        check_call(["git", "-C", path, "fetch", "--depth=1", "origin", commit])
+        check_call(["git", "-C", path, "checkout", commit])
+
+
+class EggInfo(egg_info):
+    def find_sources(self):
+        super().find_sources()
+        get_submodules()
+        self.filelist.extend(["xmake.lua", "gitmodules.lock"])
+        self.filelist.include("core/**")
+
+
+class SDist(sdist):
+    def make_release_tree(self, base_dir, files):
+        super().make_release_tree(base_dir, files)
+        # if bindist exists, copy it to source dist for faster local installation
+        if Path("bindist").exists():
+            self.copy_tree(Path("bindist"), Path(base_dir) / "bindist")
+
+
+EXT_NAME = "nonebot_plugin_htmlkit.core"
+
+
+class XmakeBuildExt(build_ext):
+    def build_extensions(self):
+        build_target = Path(self.build_lib) / "nonebot_plugin_htmlkit"
+        build_target.mkdir(parents=True, exist_ok=True)
+        bindist_dir = Path("bindist")
+        core_dylib = bindist_dir / "core.dylib"
+        if not bindist_dir.exists():
+            ensure_submodules(self)
+            check_call(["xmake", "f", "-m", "releasedbg", "-y"])
+            check_call(["xmake", "build", "core"])
+            check_call(["xmake", "install", "-o", "bindist"])
+        dylib_target = build_target.joinpath("core.so").with_suffix(get_abi3_suffix())
+        copyfile(core_dylib, dylib_target)
+
+
+ext_modules = [
+    Extension(
+        EXT_NAME,
+        sources=[],
+        py_limited_api=True,
+    )
+]
+
+setup(
+    cmdclass={
+        "egg_info": EggInfo,
+        "sdist": SDist,
+        "build_ext": XmakeBuildExt,
+    },
+    ext_modules=ext_modules,
+    packages=["nonebot_plugin_htmlkit"],
+    options={"bdist_wheel": {"py_limited_api": "cp39"}},
+)

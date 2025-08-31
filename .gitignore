@@ -525,3 +525,5 @@ compile_commands.json
 CMakeLists.txt
 
 output/
+bindist/
+gitmodules.lock
