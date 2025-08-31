@@ -1,13 +1,12 @@
-from subprocess import check_call, check_output
 import json
 from pathlib import Path
 from shutil import copyfile
+from subprocess import check_call, check_output
 
 from setuptools import Extension, setup
-from setuptools.command.egg_info import egg_info
 from setuptools.command.build_ext import build_ext, get_abi3_suffix
+from setuptools.command.egg_info import egg_info
 from setuptools.command.sdist import sdist
-from setuptools.command.build_py import build_py
 
 
 def get_submodules(ref="HEAD"):
@@ -44,8 +43,8 @@ class EggInfo(egg_info):
     def find_sources(self):
         super().find_sources()
         get_submodules()
-        self.filelist.extend(["xmake.lua", "gitmodules.lock"])
         self.filelist.include("core/**")
+        self.filelist.extend(["xmake.lua", "gitmodules.lock"])
 
 
 class SDist(sdist):
@@ -53,7 +52,7 @@ class SDist(sdist):
         super().make_release_tree(base_dir, files)
         # if bindist exists, copy it to source dist for faster local installation
         if Path("bindist").exists():
-            self.copy_tree(Path("bindist"), Path(base_dir) / "bindist")
+            self.copy_tree(Path("bindist"), str(Path(base_dir) / "bindist"))
 
 
 EXT_NAME = "nonebot_plugin_htmlkit.core"

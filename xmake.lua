@@ -1,5 +1,22 @@
+--[[
+Copyright (C) 2025 NoneBot
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2.1 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, see <https://www.gnu.org/licenses/>.
+]]
 add_rules("mode.debug", "mode.release", "mode.releasedbg")
 
+set_license("LGPL-2.1-or-later")
 package("litehtml_local")
     set_homepage("http://www.litehtml.com/")
     set_description("Fast and lightweight HTML/CSS rendering engine")
@@ -34,12 +51,8 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "python 3.9.x")
+add_requires("litehtml_local", "pango", "cairo", "python 3.9.x")
 set_languages("c++17")
-add_requires("pango", {configs = {shared = true}})
-add_requires("cairo", {configs = {shared = true}})
-add_requires("fontconfig", {configs = {shared = true}})
-
 add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
 
 function require_htmlkit()
