@@ -1,6 +1,6 @@
 from asyncio import get_running_loop, run_coroutine_threadsafe
-from collections.abc import Coroutine
-from typing import Any, Callable, Optional
+from collections.abc import Callable, Coroutine
+from typing import Any
 from urllib.parse import urljoin
 
 import nonebot
@@ -33,7 +33,7 @@ async def _none_fetcher(_url: str) -> None:
     return None
 
 
-FetchFn = Callable[[str], Coroutine[Any, Any, Optional[bytes]]]
+FetchFn = Callable[[str], Coroutine[Any, Any, bytes | None]]
 
 
 async def html_to_pic(

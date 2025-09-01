@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 import os
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,23 +12,19 @@ class FcConfig(BaseModel):
     参考 https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-user
     """
 
-    fontconfig_file: Optional[str] = Field(
-        default=None, description="覆盖默认的配置文件"
-    )
-    fontconfig_path: Optional[str] = Field(
-        default=None, description="覆盖默认的配置目录"
-    )
-    fontconfig_sysroot: Optional[str] = Field(
+    fontconfig_file: str | None = Field(default=None, description="覆盖默认的配置文件")
+    fontconfig_path: str | None = Field(default=None, description="覆盖默认的配置目录")
+    fontconfig_sysroot: str | None = Field(
         default=None, description="覆盖默认的 sysroot"
     )
-    fc_debug: Optional[str] = Field(default=None, description="设置 debug 级别")
-    fc_dbg_match_filter: Optional[str] = Field(
+    fc_debug: str | None = Field(default=None, description="设置 debug 级别")
+    fc_dbg_match_filter: str | None = Field(
         default=None, description="当 FC_DEBUG 设置了 MATCH2 时，过滤 debug 输出"
     )
-    fc_lang: Optional[str] = Field(
+    fc_lang: str | None = Field(
         default=None, description="设置默认语言，否则从 LOCALE 环境变量获取"
     )
-    fontconfig_use_mmap: Optional[str] = Field(
+    fontconfig_use_mmap: str | None = Field(
         default=None, description="是否使用 mmap(2) 读取字体缓存"
     )
 

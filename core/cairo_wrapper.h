@@ -18,9 +18,9 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #ifndef CAIRO_WRAPPER_H
 #define CAIRO_WRAPPER_H
 
-#include "cairo.h"
+#include <cairo.h>
 #include <litehtml.h>
-#include "pango/pango-font.h"
+#include <pango/pango-font.h>
 #include <vector>
 
 #include <Python.h>
@@ -203,8 +203,8 @@ namespace cairo_wrapper
 
     struct BufferView {
         const char* data;
-        ssize_t size;
-        ssize_t offset;
+        unsigned int size;
+        unsigned int offset;
     };
 
     cairo_status_t write_to_vector(void* closure, const unsigned char* data, unsigned int length);

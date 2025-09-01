@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from shutil import copyfile
 from subprocess import check_call, check_output
@@ -33,9 +34,8 @@ def ensure_submodules(cmd):
     for path, url, commit in get_submodules():
         subdir = Path(path)
         if not subdir.exists():
-            cmd.announce(f"Cloning {url} into {path} @ {commit}", level=3)
+            cmd.announce(f"Cloning {url} into {path} @ {commit}", level=20)
             check_call(["git", "clone", url, path])
-        check_call(["git", "-C", path, "fetch", "--depth=1", "origin", commit])
         check_call(["git", "-C", path, "checkout", commit])
 
 
@@ -66,8 +66,9 @@ class XmakeBuildExt(build_ext):
         core_dylib = bindist_dir / "core.dylib"
         if not bindist_dir.exists():
             ensure_submodules(self)
-            check_call(["xmake", "f", "-m", "releasedbg", "-y"])
-            check_call(["xmake", "build", "core"])
+            os.environ["XMAKE_ROOT"] = "y"
+            check_call(["xmake", "config", "-m", "release", "-y"])
+            check_call(["xmake", "build", "-vD", "core"])
             check_call(["xmake", "install", "-o", "bindist"])
         dylib_target = build_target.joinpath("core.so").with_suffix(get_abi3_suffix())
         copyfile(core_dylib, dylib_target)
@@ -89,5 +90,5 @@ setup(
     },
     ext_modules=ext_modules,
     packages=["nonebot_plugin_htmlkit"],
-    options={"bdist_wheel": {"py_limited_api": "cp39"}},
+    options={"bdist_wheel": {"py_limited_api": "cp310"}},
 )

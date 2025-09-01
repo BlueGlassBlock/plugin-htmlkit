@@ -51,16 +51,25 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "pango", "cairo", "python 3.9.x")
+add_requires("litehtml_local", "pango", "cairo")
 set_languages("c++17")
-add_requireconfs("**.python", {override = true, version = "3.9.x", headeronly = true })
+add_requires("python", { system = true, version = "3.10.x", configs = { shared = true } })
+add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly = true, shared = true })
 
 function require_htmlkit()
     add_packages("litehtml_local", "cairo", "pango", "python")
+    add_packages("python", { links = {} })
     add_files("core/*.cpp")
-    add_defines("UNICODE", "PY_SSIZE_T_CLEAN")
+    add_defines("UNICODE", "PY_SSIZE_T_CLEAN", "Py_LIMITED_API=0x030a0000")  -- Python 3.10
+    add_links("pangocairo-1.0")
     if is_plat("windows") then
         add_links("Dwrite")
+    end
+    if is_plat("macosx") then
+        -- Pango CoreText backend needs CoreText (and CoreGraphics/CoreFoundation for related symbols)
+        add_frameworks("CoreText", "CoreGraphics", "CoreFoundation")
+        add_ldflags("-undefined", "dynamic_lookup", {force = true})
+        add_shflags("-undefined", "dynamic_lookup", {force = true})
     end
 end
 

@@ -18,7 +18,7 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #ifndef CONTAINER_INFO_H
 #define CONTAINER_INFO_H
 
-#include "cairo/cairo.h"
+#include <cairo.h>
 #include <string>
 
 #include "litehtml/types.h"

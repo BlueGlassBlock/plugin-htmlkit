@@ -1,9 +1,9 @@
 import asyncio
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 import concurrent.futures
 from types import TracebackType
-from typing import Any, Callable
-from typing_extensions import TypeAlias, Unpack
+from typing import Any, TypeAlias
+from typing_extensions import Unpack
 
 def _init_fontconfig_internal() -> None: ...
 

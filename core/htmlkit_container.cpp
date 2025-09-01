@@ -18,7 +18,6 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include "htmlkit_container.h"
 #include "cairo_wrapper.h"
 #include <array>
-#include <uriparser/Uri.h>
 #include <pango/pango.h>
 #include <pango/pango-font.h>
 #include <pango/pangocairo.h>
@@ -1205,7 +1204,6 @@ void htmlkit_container::process_images() {
             continue;
         }
         if (!PyBytes_Check(image.ptr)) {
-            PyObject_Print(image.ptr, stdout, 0);
             continue;
         }
         char* buf;
@@ -1216,7 +1214,7 @@ void htmlkit_container::process_images() {
         }
         // PNG magic
         if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
-            cairo_wrapper::BufferView view{buf, size, 0};
+            cairo_wrapper::BufferView view{buf, (unsigned int)size, 0};
             cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(cairo_wrapper::read_from_view, &view);
             if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
                 cairo_surface_destroy(surface);
@@ -1321,7 +1319,8 @@ const char* htmlkit_container::call_urljoin(const char* base, const char* url) {
     const char* joined = nullptr;
     const PyObjectPtr joined_url_obj(PyObject_CallFunction(urljoin, "ss", base, url));
     if (joined_url_obj != nullptr) {
-        joined = PyUnicode_AsUTF8(joined_url_obj.ptr);
+        Py_ssize_t _len;
+        joined = PyUnicode_AsUTF8AndSize(joined_url_obj.ptr, &_len);
     }
     if (joined == nullptr) {
         handle_exception();

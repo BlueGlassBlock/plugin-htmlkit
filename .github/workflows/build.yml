@@ -1,0 +1,150 @@
+name: Build Wheels
+on:
+  push:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux_2_34_x86_64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install UV
+        uses: astral-sh/setup-uv@v6
+      - name: Install XMake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+          actions-cache-key: xmake-linux-${{ hashFiles('xmake.lua') }}
+      - name: Pin Python Version
+        run: uv python pin 3.10.11
+      - name: Build wheels
+        run: |
+          git config --global --add safe.directory '*'
+          uv venv
+          source .venv/bin/activate
+          uv pip install pip setuptools wheel ninja meson auditwheel
+          dnf install -y pango-devel cairo-devel fontconfig-devel
+          uv build
+          auditwheel repair dist/*.whl -w wheelhouse
+        env:
+          XMAKE_ROOT: 'y'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: wheelhouse/*.whl
+      - name: Run Test
+        run: |
+          cd ../
+          mkdir test-env
+          cd test-env
+          uv python pin 3.13
+          uv venv
+          source .venv/bin/activate
+          cp -r ../plugin-htmlkit/tests/ ./tests
+          cp ../plugin-htmlkit/test-pyproject.toml ./pyproject.toml
+          uv sync
+          uv add $(ls ../plugin-htmlkit/wheelhouse/*.whl | head -n1)
+          uv run pytest
+
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install UV
+        uses: astral-sh/setup-uv@v6
+      - name: Install XMake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+          actions-cache-key: xmake-windows-${{ hashFiles('xmake.lua') }}
+      - name: Pin Python Version
+        run: uv python pin 3.10.11
+      - name: Build wheels
+        run: |
+          git config --global --add safe.directory '*'
+          uv venv
+          .venv/Scripts/activate
+          cp .venv/Scripts/python.exe .venv/Scripts/python3.exe
+          uv pip install pip setuptools wheel ninja meson delvewheel
+          uv build
+          delvewheel repair dist/*.whl -w wheelhouse
+        env:
+          XMAKE_ROOT: 'y'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows
+          path: wheelhouse/*.whl
+      - name: Run Test
+        run: |
+          cd ../
+          mkdir test-env
+          cd test-env
+          uv python pin 3.13
+          uv venv
+          .venv/Scripts/activate
+          cp -r ../plugin-htmlkit/tests/ ./tests
+          cp ../plugin-htmlkit/test-pyproject.toml ./pyproject.toml
+          uv add $((Get-ChildItem ..\plugin-htmlkit\wheelhouse\*.whl | Select-Object -First 1).FullName)
+          uv run pytest
+  
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install UV
+        uses: astral-sh/setup-uv@v6
+      - name: Install XMake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
+          actions-cache-key: xmake-macos-${{ hashFiles('xmake.lua') }}
+      - name: Pin Python Version
+        run: uv python pin 3.10.11
+      - name: Build wheels
+        run: |
+          git config --global --add safe.directory '*'
+          uv venv
+          source .venv/bin/activate
+          uv pip install pip setuptools wheel ninja meson delocate
+          uv build
+          delocate-wheel -w wheelhouse dist/*.whl
+        env:
+          XMAKE_ROOT: 'y'
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: wheelhouse/*.whl
+      - name: Run Test
+        run: |
+          cd ../
+          mkdir test-env
+          cd test-env
+          uv python pin 3.13
+          uv venv
+          source .venv/bin/activate
+          cp -r ../plugin-htmlkit/tests/ ./tests
+          cp ../plugin-htmlkit/test-pyproject.toml ./pyproject.toml
+          uv sync
+          uv add $(ls ../plugin-htmlkit/wheelhouse/*.whl | head -n1)
+          uv run pytest

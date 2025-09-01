@@ -31,9 +31,9 @@ extern "C" {
         PyObject *exception_fn = nullptr, *asyncio_run_coroutine_threadsafe = nullptr, *urljoin = nullptr,
                  *asyncio_loop = nullptr, *img_fetch_fn = nullptr, *css_fetch_fn = nullptr;
         const char *font_name, *lang, *culture, *html_content, *base_url;
-        int arg_dpi, arg_width, arg_height, default_font_size;
+        float arg_dpi, arg_width, arg_height, default_font_size;
         container_info info;
-        if (!PyArg_ParseTuple(args, "ssiiiisssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
+        if (!PyArg_ParseTuple(args, "ssffffsssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
                               &default_font_size, &font_name, &lang, &culture, &exception_fn,
                               &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop, &img_fetch_fn,
                               &css_fetch_fn)) {
@@ -149,13 +149,13 @@ extern "C" {
 
     static PyMethodDef methods[] = {
         {
-            /* .ml_name = */ "render",
+            /* .ml_name = */ "_render_internal",
             /*.ml_meth = */render,
             /*.ml_flags = */METH_VARARGS,
             /*.ml_doc = */"Core function for rendering HTML page."
         },
         {
-            /* .ml_name = */ "setup_fontconfig",
+            /* .ml_name = */ "_init_fontconfig_internal",
             /*.ml_meth = */setup_fontconfig,
             /*.ml_flags = */METH_VARARGS,
             /*.ml_doc = */"Setup fontconfig if not already initialized."
