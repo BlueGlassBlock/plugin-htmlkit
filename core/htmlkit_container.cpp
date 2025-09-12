@@ -1166,7 +1166,7 @@ void htmlkit_container::load_image(const char* src, const char* baseurl, bool re
     if (src == nullptr) {
         src = "";
     }
-    if (baseurl == nullptr || baseurl == "" || !baseurl[0]) {
+    if (baseurl == nullptr || !baseurl[0]) {
         baseurl = m_base_url.c_str();
     }
     if (m_img_fetch_fn == nullptr) {
@@ -1231,7 +1231,7 @@ cairo_surface_t* htmlkit_container::get_image(const char* url, const char* baseu
     if (url == nullptr) {
         url = "";
     }
-    if (baseurl == nullptr || baseurl == "" || !baseurl[0]) {
+    if (baseurl == nullptr || !baseurl[0]) {
         baseurl = m_base_url.c_str();
     }
     process_images();

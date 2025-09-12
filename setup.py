@@ -1,4 +1,5 @@
 import json
+import sys
 import os
 from pathlib import Path
 from shutil import copyfile
@@ -66,8 +67,10 @@ class XmakeBuildExt(build_ext):
         core_dylib = bindist_dir / "core.dylib"
         if not bindist_dir.exists():
             ensure_submodules(self)
-            os.environ["XMAKE_ROOT"] = "y"
-            check_call(["xmake", "config", "-m", "release", "-y"])
+            config_cmd = ["xmake", "config", "-m", "release", "-y"]
+            if sys.platform == "darwin":
+                config_cmd += [f"--target_minver={os.environ.get('MACOSX_DEPLOYMENT_TARGET', '12.0')}"]
+            check_call(config_cmd)
             check_call(["xmake", "build", "-vD", "core"])
             check_call(["xmake", "install", "-o", "bindist"])
         dylib_target = build_target.joinpath("core.so").with_suffix(get_abi3_suffix())
