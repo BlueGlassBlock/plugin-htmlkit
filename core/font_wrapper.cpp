@@ -68,6 +68,5 @@ int init_fontconfig() {
     global_fontmap = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
 	g_object_ref_sink(global_fontmap);
     global_fontmap_mutex.unlock();
-    printf("OK init success %p\n", global_fontmap);
     return 0;
 }

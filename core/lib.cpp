@@ -32,9 +32,10 @@ extern "C" {
                  *asyncio_loop = nullptr, *img_fetch_fn = nullptr, *css_fetch_fn = nullptr;
         const char *font_name, *lang, *culture, *html_content, *base_url;
         float arg_dpi, arg_width, arg_height, default_font_size;
+        bool allow_refit;
         container_info info;
-        if (!PyArg_ParseTuple(args, "ssffffsssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
-                              &default_font_size, &font_name, &lang, &culture, &exception_fn,
+        if (!PyArg_ParseTuple(args, "ssffffspssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
+                              &default_font_size, &font_name, &allow_refit, &lang, &culture, &exception_fn,
                               &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop, &img_fetch_fn,
                               &css_fetch_fn)) {
             return nullptr;
@@ -98,7 +99,7 @@ extern "C" {
                                                             " html { background-color: #fff; }");
             int width = arg_width;
             litehtml::pixel_t best_width = doc->render(arg_width);
-            if (best_width < width) {
+            if (allow_refit && best_width < arg_width) {
                 width = best_width;
                 doc->render(width);
             }
@@ -135,7 +136,13 @@ extern "C" {
             cairo_destroy(cr);
             std::vector<unsigned char> bytes;
             cairo_status_t stat = cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
-            printf("cairo_surface_write_to_png_stream status: %d\n", stat);
+            if (stat != CAIRO_STATUS_SUCCESS) {
+                GILState write_png_failed_gil;
+                const char* err_msg = cairo_status_to_string(stat);
+                PyErr_SetString(PyExc_RuntimeError, err_msg);
+                cairo_surface_destroy(surface);
+                return bail();
+            }
 
             GILState gil;
             PyObjectPtr bytes_obj(PyBytes_FromStringAndSize((const char*)bytes.data(), bytes.size()));

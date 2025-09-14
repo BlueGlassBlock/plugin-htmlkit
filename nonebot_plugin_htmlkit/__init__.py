@@ -141,6 +141,7 @@ async def html_to_pic(
     device_height: float = 600.0,
     default_font_size: float = 12.0,
     font_name: str = "sans-serif",
+    allow_refit: bool = True,
     lang: str = "zh",
     culture: str = "CN",
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
@@ -156,6 +157,7 @@ async def html_to_pic(
         device_height,
         default_font_size,
         font_name,
+        allow_refit,
         lang,
         culture,
         lambda exc, exc_type, tb: nonebot.logger.opt(
@@ -181,14 +183,17 @@ env = jinja2.Environment(
 async def text_to_pic(
     text: str,
     css_path: str = "",
-    width: int = 500,
+    *,
+    max_width: int = 500,
+    allow_refit: bool = True,
 ) -> bytes:
     """多行文本转图片
 
     Args:
         text (str): 纯文本, 可多行
         css_path (str, optional): css文件
-        width (int, optional): 图片宽度，默认为 500
+        max_width (int, optional): 图片最大宽度，默认为 500
+        allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
 
     Returns:
         bytes: 图片, 可直接发送
@@ -200,8 +205,9 @@ async def text_to_pic(
             text=text,
             css=await read_file(css_path) if css_path else await read_tpl("text.css"),
         ),
-        max_width=width,
+        max_width=max_width,
         base_url=f"file://{css_path or TEMPLATES_PATH}",
+        allow_refit=allow_refit,
     )
 
 
@@ -209,9 +215,10 @@ async def md_to_pic(
     md: str = "",
     md_path: str = "",
     css_path: str = "",
-    width: int = 500,
     *,
+    max_width: int = 500,
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
+    allow_refit: bool = True,
 ) -> bytes:
     """markdown 转 图片
 
@@ -219,8 +226,9 @@ async def md_to_pic(
         md (str, optional): markdown 格式文本
         md_path (str, optional): markdown 文件路径
         css_path (str,  optional): css文件路径. Defaults to None.
-        width (int, optional): 图片宽度，默认为 500
+        max_width (int, optional): 图片最大宽度，默认为 500
         img_fetch_fn (FetchFn, optional): 图片获取函数，默认为 combined_fetcher
+        allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
 
     Returns:
         bytes: 图片, 可直接发送
@@ -257,10 +265,11 @@ async def md_to_pic(
 
     return await html_to_pic(
         html=await template.render_async(md=md, css=css),
-        max_width=width,
+        max_width=max_width,
         device_height=10,
         base_url=f"file://{css_path or TEMPLATES_PATH}",
         img_fetch_fn=img_fetch_fn,
+        allow_refit=allow_refit,
     )
 
 
@@ -301,12 +310,13 @@ async def template_to_pic(
     template_name: str,
     templates: dict[Any, Any],
     filters: None | dict[str, Any] = None,
-    width: int = 500,
     *,
+    max_width: int = 500,
     device_height: int = 10,
     base_url: str | None = None,
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
+    allow_refit: bool = True,
 ) -> bytes:
     """使用jinja2模板引擎通过html生成图片
 
@@ -316,11 +326,12 @@ async def template_to_pic(
         template_name (str): 模板名
         templates (dict[Any, Any]): 模板内参数 如: {"name": "abc"}
         filters (dict[str, Any] | None): 自定义过滤器
-        width (int, optional): 图片宽度，默认为 500
+        max_width (int, optional): 图片最大宽度，默认为 500
         device_height (int, optional): 设备高度，默认为 10，与实际图片高度无关
         base_url (str | None, optional): 基础路径，默认为 "file://{template_path}"
         img_fetch_fn (FetchFn, optional): 图片获取函数，默认为 combined_fetcher
         css_fetch_fn (FetchFn, optional): css获取函数，默认为 combined_fetcher
+        allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
     Returns:
         bytes: 图片 可直接发送
     """
@@ -339,8 +350,9 @@ async def template_to_pic(
     return await html_to_pic(
         html=await template.render_async(**templates),
         base_url=base_url or f"file://{template_path}",
-        max_width=width,
+        max_width=max_width,
         device_height=device_height,
         img_fetch_fn=img_fetch_fn,
         css_fetch_fn=css_fetch_fn,
+        allow_refit=allow_refit,
     )
