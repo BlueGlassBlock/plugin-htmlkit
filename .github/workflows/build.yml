@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm]
         config-mode: [releasedbg, release]
         include:
           - before-build: ""
@@ -23,6 +23,11 @@ jobs:
           - os: ubuntu-latest
             container:
               image: quay.io/pypa/manylinux_2_34_x86_64
+            repair: "auditwheel repair dist/*.whl -w wheelhouse"
+            replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
+          - os: ubuntu-24.04-arm
+            container:
+              image: quay.io/pypa/manylinux_2_34_aarch64
             repair: "auditwheel repair dist/*.whl -w wheelhouse"
             replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
           - os: windows-latest
@@ -39,7 +44,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
       XMAKE_CONFIG_MODE: ${{ matrix.config-mode }}
 
-    name: Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }} with ${{ matrix.config-mode }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 
