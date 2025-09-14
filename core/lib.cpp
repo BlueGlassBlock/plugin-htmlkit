@@ -79,7 +79,7 @@ extern "C" {
                     PyErr_Print();
                     return;
                 }
-                if (PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_exception, exc_val) == nullptr) {
+                if (PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_exception.ptr, exc_val.ptr) == nullptr) {
                     PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
                     PyErr_Print();
                 }
