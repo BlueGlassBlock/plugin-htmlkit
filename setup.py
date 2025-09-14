@@ -1,9 +1,9 @@
 import json
-import sys
 import os
 from pathlib import Path
 from shutil import copyfile
 from subprocess import check_call, check_output
+import sys
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext, get_abi3_suffix
@@ -67,9 +67,11 @@ class XmakeBuildExt(build_ext):
         core_dylib = bindist_dir / "core.dylib"
         if not bindist_dir.exists():
             ensure_submodules(self)
-            config_cmd = ["xmake", "config", "-m", "release", "-y"]
+            config_mode = os.environ.get("XMAKE_CONFIG_MODE", "releasedbg")
+            config_cmd = ["xmake", "config", "-m", config_mode, "-y"]
             if sys.platform == "darwin":
-                config_cmd += [f"--target_minver={os.environ.get('MACOSX_DEPLOYMENT_TARGET', '12.0')}"]
+                target_minver = os.environ.get("MACOSX_DEPLOYMENT_TARGET", "12.0")
+                config_cmd += [f"--target_minver={target_minver}"]
             check_call(config_cmd)
             check_call(["xmake", "build", "-vD", "core"])
             check_call(["xmake", "install", "-o", "bindist"])

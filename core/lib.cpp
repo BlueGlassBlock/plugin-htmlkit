@@ -60,17 +60,29 @@ extern "C" {
         PyObject* future = PyObject_CallMethod(asyncio_loop, "create_future", nullptr);
         if (future == nullptr) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to create future from event loop");
+            return nullptr;
         }
 
+        Py_INCREF(future);
         std::thread([=]() {
-            auto bail = [=](const PyGILState_STATE gil) {
-                PyObject *exc_ty, *exc_val, *exc_tb;
-                PyErr_Fetch(&exc_ty, &exc_val, &exc_tb);
-                if (PyObject_CallMethod(future, "set_exception", "O", exc_val) == nullptr) {
-                    PyErr_Restore(exc_ty, exc_val, exc_tb);
+            auto bail = [=]() {
+                GILState bail_gil;
+                PyObjectPtr exc_ty(nullptr), exc_val(nullptr), exc_tb(nullptr);
+                PyErr_Fetch(&exc_ty.ptr, &exc_val.ptr, &exc_tb.ptr);
+                PyErr_NormalizeException(&exc_ty.ptr, &exc_val.ptr, &exc_tb.ptr);
+                if (exc_tb != nullptr) {
+                    PyException_SetTraceback(exc_val.ptr, exc_tb.ptr);
+                }
+                PyObjectPtr set_exception(PyObject_GetAttrString(future, "set_exception"));
+                if (set_exception == nullptr) {
+                    PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
+                    PyErr_Print();
+                    return;
+                }
+                if (PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_exception, exc_val) == nullptr) {
+                    PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
                     PyErr_Print();
                 }
-                PyGILState_Release(gil);
             };
 
             PangoFontMap* font_map = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
@@ -90,53 +102,57 @@ extern "C" {
                 width = best_width;
                 doc->render(width);
             }
-            auto surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, doc->content_height());
+            litehtml::pixel_t content_height = doc->content_height();
+
+            cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, content_height);
             if (!surface) {
-                const auto gil = PyGILState_Ensure();
+                GILState surface_creation_failed_gil;
                 PyErr_SetString(PyExc_RuntimeError, "Could not create surface");
-                return bail(gil);
+                return bail();
+            }
+            if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+                GILState surface_status_error_gil;
+                const char* err_msg = cairo_status_to_string(cairo_surface_status(surface));
+                PyErr_SetString(PyExc_RuntimeError, err_msg);
+                cairo_surface_destroy(surface);
+                return bail();
             }
             auto cr = cairo_create(surface);
 
             // Fill background with white color
             cairo_save(cr);
-            cairo_rectangle(cr, 0, 0, width, doc->content_height());
+            cairo_rectangle(cr, 0, 0, width, content_height);
             cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 1.0);
             cairo_fill(cr);
             cairo_restore(cr);
 
             // Draw document
-            litehtml::position clip(0, 0, width, doc->content_height());
+            litehtml::position clip(0, 0, width, content_height);
 
             doc->draw((litehtml::uint_ptr)cr, 0, 0, &clip);
 
             cairo_surface_flush(surface);
             cairo_destroy(cr);
             std::vector<unsigned char> bytes;
-            cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
+            cairo_status_t stat = cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
+            printf("cairo_surface_write_to_png_stream status: %d\n", stat);
 
-            const auto gil = PyGILState_Ensure();
-            PyObject* bytes_obj = PyBytes_FromStringAndSize((const char*)bytes.data(), bytes.size());
+            GILState gil;
+            PyObjectPtr bytes_obj(PyBytes_FromStringAndSize((const char*)bytes.data(), bytes.size()));
             if (bytes_obj == nullptr) {
-                return bail(gil);
+                return bail();
             }
-            PyObject* set_result = PyObject_GetAttrString(future, "set_result");
+            PyObjectPtr set_result(PyObject_GetAttrString(future, "set_result"));
             if (set_result == nullptr) {
-                Py_DECREF(bytes_obj);
-                return bail(gil);
+                return bail();
             }
-            PyObject* call_soon_result = PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_result,
-                                                             bytes_obj);
+            PyObjectPtr call_soon_result(PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO", set_result.ptr,
+                                                             bytes_obj.ptr));
             if (call_soon_result == nullptr) {
-                Py_DECREF(bytes_obj);
-                Py_DECREF(set_result);
-                return bail(gil);
+                return bail();
             }
-            Py_DECREF(bytes_obj);
-            Py_DECREF(set_result);
-            Py_DECREF(call_soon_result);
-            PyGILState_Release(gil);
             cairo_surface_destroy(surface);
+            Py_XDECREF(future);
             return;
         }).detach();
         return future;

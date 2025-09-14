@@ -12,6 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        config-mode: [releasedbg, release]
         include:
           - before-build: ""
             container: null
@@ -36,6 +37,7 @@ jobs:
     env:
       XMAKE_ROOT: 'y'
       MACOSX_DEPLOYMENT_TARGET: '11.0'
+      XMAKE_CONFIG_MODE: ${{ matrix.config-mode }}
 
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -73,7 +75,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-${{ matrix.os }}-${{ matrix.config-mode }}
           path: wheelhouse/*.whl
       - name: Run Test
         run: |

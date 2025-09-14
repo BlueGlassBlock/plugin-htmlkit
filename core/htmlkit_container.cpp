@@ -1242,17 +1242,20 @@ cairo_surface_t* htmlkit_container::get_image(const char* url, const char* baseu
     return nullptr;
 }
 
-std::function<void()> htmlkit_container::import_css(const litehtml::string& url, const litehtml::string& baseurl,
+std::function<void()> htmlkit_container::import_css(const litehtml::string& url, const litehtml::string& origin_baseurl,
                                                     const std::function<void(
                                                         const litehtml::string& css_text,
                                                         const litehtml::string& new_baseurl)>& on_imported) {
-    auto empty = [=]() { on_imported("", baseurl); };
+
+    litehtml::string base_url = origin_baseurl.length() ? origin_baseurl : m_base_url;
+
+    auto empty = [=]() { on_imported("", base_url); };
     if (m_css_fetch_fn == nullptr) {
         return empty;
     }
 
     GILState gil;
-    std::string joined_url = call_urljoin(baseurl.c_str(), url.c_str());
+    std::string joined_url = call_urljoin(base_url.c_str(), url.c_str());
     const PyObjectPtr awaitable(PyObject_CallFunction(m_css_fetch_fn, "s", joined_url.c_str()));
     if (awaitable == nullptr) {
         handle_exception();

@@ -14,7 +14,8 @@ _AsyncioRunCoroutineThreadsafeFn: TypeAlias = Callable[
     concurrent.futures.Future[Any],
 ]
 _UrlJoinFn: TypeAlias = Callable[[str, str], str]
-_FetchFn: TypeAlias = Callable[[str], Coroutine[Any, Any, None | bytes]]
+_ImageFetchFn: TypeAlias = Callable[[str], Coroutine[Any, Any, None | bytes]]
+_CSSFetchFn: TypeAlias = Callable[[str], Coroutine[Any, Any, None | str]]
 
 def _render_internal(
     html_content: str,
@@ -30,7 +31,7 @@ def _render_internal(
     asyncio_run_coroutine_threadsafe: _AsyncioRunCoroutineThreadsafeFn,
     urljoin: _UrlJoinFn,
     loop: asyncio.AbstractEventLoop,
-    img_fetch_fn: _FetchFn,
-    css_fetch_fn: _FetchFn,
+    img_fetch_fn: _ImageFetchFn,
+    css_fetch_fn: _CSSFetchFn,
     /,
 ) -> asyncio.Future[bytes]: ...
