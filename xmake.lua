@@ -51,16 +51,11 @@ package("litehtml_local")
     end)
 package_end()
 
-if is_plat("macosx") then
-    add_requires("litehtml_local", "pango", "cairo", { system = false })
-    add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false })
-else
-    add_requires("litehtml_local", "pango", "cairo", { configs = { shared = true } })
-end
+add_requires("litehtml_local", "pango", "cairo")
 set_languages("c++17")
 add_requires("python", { system = true, version = "3.10.x", configs = { shared = true } })
 add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly = true, shared = true })
-
+add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
 function require_htmlkit()
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
@@ -69,7 +64,6 @@ function require_htmlkit()
     if is_plat("windows") then
         add_links("Dwrite")
     end
-    add_links("pango-1.0", "pangocairo-1.0")
     if is_plat("macosx") then
         -- Pango CoreText backend needs CoreText (and CoreGraphics/CoreFoundation for related symbols)
         add_frameworks("CoreText", "CoreGraphics", "CoreFoundation")
