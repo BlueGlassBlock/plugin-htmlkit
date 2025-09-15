@@ -58,8 +58,7 @@ add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly 
 add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
 function require_htmlkit()
     if is_plat("linux") then
-        add_linkorders("pangocairo-1.0", "pangoft2-1.0", "pango-1.0")
-        add_links("pangocairo-1.0", "pangoft2-1.0", "pango-1.0")
+        add_linkgroups("pangocairo-1.0", "pangoft2-1.0", "pango-1.0", { whole = true, name = "pango" })
     end
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
