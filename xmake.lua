@@ -58,7 +58,8 @@ add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly 
 add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
 function require_htmlkit()
     if is_plat("linux") then
-        add_linkgroups("pangocairo-1.0", "pangoft2-1.0", "pango-1.0", { whole = true, name = "pango" })
+        add_linkgroups("pangocairo-1.0", "pangoft2-1.0", "pango-1.0", { group = true, name = "pango" })
+        add_linkgroups("harfbuzz", "harfbuzz-subset", "harfbuzz-gobject", { group = true, name = "harfbuzz" })
     end
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
