@@ -82,6 +82,11 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}-${{ matrix.config-mode }}
           path: wheelhouse/*.whl
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}-${{ matrix.config-mode }}
+          path: bindist/*
       - name: Run Test
         run: |
           cd ../
