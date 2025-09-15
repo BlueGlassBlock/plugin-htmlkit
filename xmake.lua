@@ -51,22 +51,20 @@ package("litehtml_local")
     end)
 package_end()
 
-if is_plat("macosx") then
-    add_requires("litehtml_local", "pango", "cairo", { system = false })
-    add_requireconfs("**|python|cmake|ninja|meson", {override = true, system = false })
-else
-    add_requires("litehtml_local", "pango", "cairo")
-end
+add_requires("litehtml_local", "pango", "cairo")
 set_languages("c++17")
 add_requires("python", { system = true, version = "3.10.x", configs = { shared = true } })
 add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly = true, shared = true })
-
+add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
 function require_htmlkit()
+    if is_plat("linux") then
+        add_linkorders("pangocairo-1.0", "pango-1.0")
+        add_linkorders("pangoft2-1.0", "pango-1.0")
+    end
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
     add_files("core/*.cpp")
     add_defines("UNICODE", "PY_SSIZE_T_CLEAN", "Py_LIMITED_API=0x030a0000")  -- Python 3.10
-    add_links("pangocairo-1.0")
     if is_plat("windows") then
         add_links("Dwrite")
     end
