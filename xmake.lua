@@ -53,14 +53,14 @@ package_end()
 
 if is_plat("macosx") then
     add_requires("litehtml_local", "pango", "cairo", { system = false })
-    add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false })
+    add_requireconfs("**|python|cmake|ninja|meson", { system = false })
 else
     add_requires("litehtml_local", "pango", "cairo")
 end
 set_languages("c++17")
 add_requires("python", { system = true, version = "3.10.x", configs = { shared = true } })
 add_requireconfs("**.python", { override = true, version = "3.10.x", headeronly = true, shared = true })
-
+add_requireconfs("**|python|cmake|ninja|meson", { shared = false })
 function require_htmlkit()
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
