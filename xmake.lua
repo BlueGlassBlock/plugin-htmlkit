@@ -53,7 +53,7 @@ package_end()
 
 if is_plat("macosx") then
     add_requires("litehtml_local", "pango", "cairo", { system = false })
-    add_requireconfs("**|python|cmake|ninja|meson", {override = true, system = false })
+    add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false })
 else
     add_requires("litehtml_local", "pango", "cairo")
 end
@@ -66,7 +66,6 @@ function require_htmlkit()
     add_packages("python", { links = {} })
     add_files("core/*.cpp")
     add_defines("UNICODE", "PY_SSIZE_T_CLEAN", "Py_LIMITED_API=0x030a0000")  -- Python 3.10
-    add_links("pangocairo-1.0")
     if is_plat("windows") then
         add_links("Dwrite")
     end
