@@ -55,7 +55,7 @@ if is_plat("macosx") then
     add_requires("litehtml_local", "pango", "cairo", { system = false })
     add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false })
 else
-    add_requires("litehtml_local", "pango", "cairo")
+    add_requires("litehtml_local", "pango", "cairo", { configs = { shared = true } })
 end
 set_languages("c++17")
 add_requires("python", { system = true, version = "3.10.x", configs = { shared = true } })
