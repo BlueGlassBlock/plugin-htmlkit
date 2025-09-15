@@ -59,6 +59,7 @@ add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = fals
 function require_htmlkit()
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
+    add_linkorders("pangocairo-1.0", "pangoft2-1.0", "pango-1.0")
     add_files("core/*.cpp")
     add_defines("UNICODE", "PY_SSIZE_T_CLEAN", "Py_LIMITED_API=0x030a0000")  -- Python 3.10
     if is_plat("windows") then
