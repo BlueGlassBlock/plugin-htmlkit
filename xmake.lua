@@ -60,6 +60,7 @@ function require_htmlkit()
     if is_plat("linux") then
         add_linkgroups("pangocairo-1.0", "pangoft2-1.0", "pango-1.0", { group = true, name = "pango" })
         add_linkgroups("harfbuzz", "harfbuzz-subset", "harfbuzz-gobject", { group = true, name = "harfbuzz" })
+        add_linkorders("linkgroup::pango", "linkgroup::harfbuzz", "fribidi")
     end
     add_packages("litehtml_local", "cairo", "pango", "python")
     add_packages("python", { links = {} })
