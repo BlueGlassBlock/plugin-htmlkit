@@ -12,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm]
-        config-mode: [releasedbg, release]
         include:
           - before-build: ""
             container: null
@@ -42,9 +41,9 @@ jobs:
     env:
       XMAKE_ROOT: 'y'
       MACOSX_DEPLOYMENT_TARGET: '11.0'
-      XMAKE_CONFIG_MODE: ${{ matrix.config-mode }}
+      XMAKE_CONFIG_MODE: release
 
-    name: Build on ${{ matrix.os }} with ${{ matrix.config-mode }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 
@@ -75,21 +74,22 @@ jobs:
           uv sync --only-group build --no-install-workspace
           uv build
           ${{ matrix.repair }}
-          xmake config -m ${{ matrix.config-mode }} -y
-          xmake build -vD core
-          xmake install -o bindist
-        env:
-          XMAKE_ROOT: 'y'
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}-${{ matrix.config-mode }}
+          name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
-
+      - name: Build Unstripped Binaries
+        run: |
+          git config --global --add safe.directory '*'
+          ${{ matrix.activate }}
+          xmake config -m releasedbg -y
+          xmake build -vD core
+          xmake install -o bindist
       - name: Upload Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.os }}-${{ matrix.config-mode }}
+          name: binaries-${{ matrix.os }}
           path: bindist/*
       - name: Run Test
         run: |
