@@ -20,8 +20,6 @@ keywords = ["nonebot", "nonebot2", "htmlkit", "litehtml", "html"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
-  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Framework :: AsyncIO",
