@@ -136,3 +136,43 @@ async def handle_render_man7(content: Message = CommandArg()):
     time_ms = (time_ed - time_st) / 1_000_000
     await render_man7.send(f"渲染耗时: {time_ms:.2f} ms")
     await render_man7.finish(MessageSegment.image(image_bytes))
+
+
+render_url = on_command("render_url", aliases={"url"}, priority=5)
+
+
+@render_url.handle()
+async def handle_render_url(content: Message = CommandArg()):
+    url = content.extract_plain_text().strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        await render_url.finish("请提供有效的 URL 地址。")
+
+    driver = get_driver()
+    if not isinstance(driver, HTTPClientMixin):
+        await render_url.finish("HTTP 客户端不可用，无法获取网页内容。")
+    try:
+        response = await driver.request(Request("GET", url))
+
+    except Exception as e:
+        await render_url.finish(f"渲染失败: {e}")
+    if response.status_code != 200:
+        await render_url.finish(
+            f"无法获取网页内容，HTTP 状态码: {response.status_code}"
+        )
+    if isinstance(response.content, bytes):
+        html_content = response.content.decode("utf-8")
+    elif isinstance(response.content, str):
+        html_content = response.content
+    else:
+        await render_url.finish("无法解析网页内容。")
+    time_st = time_ns()
+    image_bytes = await html_to_pic(
+        html_content,
+        base_url=url,
+        max_width=1000,
+        css_fetch_fn=none_fetcher,
+    )
+    time_ed = time_ns()
+    time_ms = (time_ed - time_st) / 1_000_000
+    await render_url.send(f"渲染耗时: {time_ms:.2f} ms")
+    await render_url.finish(MessageSegment.image(image_bytes))

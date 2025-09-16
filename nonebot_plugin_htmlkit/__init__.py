@@ -2,7 +2,7 @@ from asyncio import get_running_loop, run_coroutine_threadsafe
 from collections.abc import Callable, Coroutine
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urljoin
 
 import aiofiles
@@ -142,12 +142,37 @@ async def html_to_pic(
     default_font_size: float = 12.0,
     font_name: str = "sans-serif",
     allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
     lang: str = "zh",
     culture: str = "CN",
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
     urljoin_fn: Callable[[str, str], str] = urljoin,
 ) -> bytes:
+    """
+    将 HTML 渲染为图片。
+
+    Args:
+        html (str): HTML 内容
+        base_url (str, optional): 基础路径
+        dpi (float, optional): DPI
+        max_width (float, optional): 最大宽度
+        device_height (float, optional): 设备高度
+        default_font_size (float, optional): 默认字体大小
+        font_name (str, optional): 字体名称
+        allow_refit (bool, optional): 允许根据内容缩小宽度
+        image_format ("png" | "jpeg", optional): 图片格式
+        jpeg_quality (int, optional): jpeg图片质量, 1-100
+        lang (str, optional): 语言
+        culture (str, optional): 文化
+        img_fetch_fn (ImgFetchFn, optional): 图片获取函数
+        css_fetch_fn (CSSFetchFn, optional): CSS获取函数
+        urljoin_fn (Callable, optional): urljoin函数
+
+    Returns:
+        bytes: 渲染后的图片字节
+    """
     loop = get_running_loop()
     return await core._render_internal(  # pyright: ignore[reportPrivateUsage]
         html,
@@ -158,6 +183,7 @@ async def html_to_pic(
         default_font_size,
         font_name,
         allow_refit,
+        -1 if image_format == "png" else jpeg_quality,
         lang,
         culture,
         lambda exc, exc_type, tb: nonebot.logger.opt(
@@ -186,20 +212,24 @@ async def text_to_pic(
     *,
     max_width: int = 500,
     allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
 ) -> bytes:
-    """多行文本转图片
+    """
+    多行文本转图片
 
     Args:
         text (str): 纯文本, 可多行
-        css_path (str, optional): css文件
+        css_path (str, optional): css文件路径
         max_width (int, optional): 图片最大宽度，默认为 500
         allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
+        image_format ("png" | "jpeg", optional): 图片格式, 默认为 "png"
+        jpeg_quality (int, optional): jpeg图片质量, 1-100, 默认为 100
 
     Returns:
         bytes: 图片, 可直接发送
     """
     template = env.get_template("text.html")
-
     return await html_to_pic(
         html=await template.render_async(
             text=text,
@@ -208,6 +238,8 @@ async def text_to_pic(
         max_width=max_width,
         base_url=f"file://{css_path or TEMPLATES_PATH}",
         allow_refit=allow_refit,
+        image_format=image_format,
+        jpeg_quality=jpeg_quality,
     )
 
 
@@ -219,16 +251,21 @@ async def md_to_pic(
     max_width: int = 500,
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
 ) -> bytes:
-    """markdown 转 图片
+    """
+    markdown 转 图片
 
     Args:
         md (str, optional): markdown 格式文本
         md_path (str, optional): markdown 文件路径
-        css_path (str,  optional): css文件路径. Defaults to None.
+        css_path (str,  optional): css文件路径
         max_width (int, optional): 图片最大宽度，默认为 500
-        img_fetch_fn (FetchFn, optional): 图片获取函数，默认为 combined_fetcher
+        img_fetch_fn (ImgFetchFn, optional): 图片获取函数，默认为 combined_img_fetcher
         allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
+        image_format ("png" | "jpeg", optional): 图片格式, 默认为 "png"
+        jpeg_quality (int, optional): jpeg图片质量, 1-100, 默认为 100
 
     Returns:
         bytes: 图片, 可直接发送
@@ -270,6 +307,8 @@ async def md_to_pic(
         base_url=f"file://{css_path or TEMPLATES_PATH}",
         img_fetch_fn=img_fetch_fn,
         allow_refit=allow_refit,
+        image_format=image_format,
+        jpeg_quality=jpeg_quality,
     )
 
 
@@ -279,29 +318,27 @@ async def template_to_html(
     filters: None | dict[str, Any] = None,
     **kwargs,
 ) -> str:
-    """使用jinja2模板引擎通过html生成图片
+    """
+    使用jinja2模板引擎渲染html
 
     Args:
         template_path (str): 模板路径
         template_name (str): 模板名
         filters (dict[str, Any] | None): 自定义过滤器
         **kwargs: 模板内容
-    Returns:
-        str: html
-    """
 
+    Returns:
+        str: 渲染后的html字符串
+    """
     template_env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(template_path),
         enable_async=True,
     )
-
     if filters:
         for filter_name, filter_func in filters.items():
             template_env.filters[filter_name] = filter_func
             logger.debug(f"Custom filter loaded: {filter_name}")
-
     template = template_env.get_template(template_name)
-
     return await template.render_async(**kwargs)
 
 
@@ -317,21 +354,26 @@ async def template_to_pic(
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
     allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
 ) -> bytes:
-    """使用jinja2模板引擎通过html生成图片
+    """
+    使用jinja2模板引擎通过html生成图片
 
     Args:
-        screenshot_timeout (float, optional): 截图超时时间，默认30000ms
         template_path (str): 模板路径
         template_name (str): 模板名
-        templates (dict[Any, Any]): 模板内参数 如: {"name": "abc"}
+        templates (dict[Any, Any]): 模板参数
         filters (dict[str, Any] | None): 自定义过滤器
         max_width (int, optional): 图片最大宽度，默认为 500
-        device_height (int, optional): 设备高度，默认为 10，与实际图片高度无关
+        device_height (int, optional): 设备高度，默认为 10
         base_url (str | None, optional): 基础路径，默认为 "file://{template_path}"
-        img_fetch_fn (FetchFn, optional): 图片获取函数，默认为 combined_fetcher
-        css_fetch_fn (FetchFn, optional): css获取函数，默认为 combined_fetcher
-        allow_refit (bool, optional): 允许根据内容缩小宽度，默认为 True
+        img_fetch_fn (ImgFetchFn, optional): 图片获取函数
+        css_fetch_fn (CSSFetchFn, optional): css获取函数
+        allow_refit (bool, optional): 允许根据内容缩小宽度
+        image_format ("png" | "jpeg", optional): 图片格式, 默认为 "png"
+        jpeg_quality (int, optional): jpeg图片质量, 1-100, 默认为 100
+
     Returns:
         bytes: 图片 可直接发送
     """
@@ -339,14 +381,11 @@ async def template_to_pic(
         loader=jinja2.FileSystemLoader(template_path),
         enable_async=True,
     )
-
     if filters:
         for filter_name, filter_func in filters.items():
             template_env.filters[filter_name] = filter_func
             logger.debug(f"Custom filter loaded: {filter_name}")
-
     template = template_env.get_template(template_name)
-
     return await html_to_pic(
         html=await template.render_async(**templates),
         base_url=base_url or f"file://{template_path}",
@@ -355,4 +394,6 @@ async def template_to_pic(
         img_fetch_fn=img_fetch_fn,
         css_fetch_fn=css_fetch_fn,
         allow_refit=allow_refit,
+        image_format=image_format,
+        jpeg_quality=jpeg_quality,
     )

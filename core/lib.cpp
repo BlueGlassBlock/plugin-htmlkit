@@ -22,6 +22,7 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include <fontconfig/fontconfig.h>
 #include <litehtml.h>
 
+#include "cairo_wrapper.h"
 #include "container_info.h"
 #include "font_wrapper.h"
 #include "htmlkit_container.h"
@@ -33,11 +34,12 @@ extern "C" {
         const char *font_name, *lang, *culture, *html_content, *base_url;
         float arg_dpi, arg_width, arg_height, default_font_size;
         bool allow_refit;
+        int image_flag; // -1 for PNG, 0-100 for JPEG quality
         container_info info;
-        if (!PyArg_ParseTuple(args, "ssffffspssOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
-                              &default_font_size, &font_name, &allow_refit, &lang, &culture, &exception_fn,
-                              &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop, &img_fetch_fn,
-                              &css_fetch_fn)) {
+        if (!PyArg_ParseTuple(args, "ssffffspissOOOOOO", &html_content, &base_url, &arg_dpi, &arg_width, &arg_height,
+                              &default_font_size, &font_name, &allow_refit, &image_flag, &lang, &culture,
+                              &exception_fn, &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop,
+                              &img_fetch_fn, &css_fetch_fn)) {
             return nullptr;
         }
         info.dpi = arg_dpi;
@@ -134,18 +136,38 @@ extern "C" {
 
             cairo_surface_flush(surface);
             cairo_destroy(cr);
-            std::vector<unsigned char> bytes;
-            cairo_status_t stat = cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
-            if (stat != CAIRO_STATUS_SUCCESS) {
-                GILState write_png_failed_gil;
-                const char* err_msg = cairo_status_to_string(stat);
-                PyErr_SetString(PyExc_RuntimeError, err_msg);
-                cairo_surface_destroy(surface);
-                return bail();
+            
+            PyObjectPtr bytes_obj(nullptr);
+            if (image_flag >= 0 && image_flag <= 100) {
+                unsigned char* jpeg_data = nullptr;
+                size_t jpeg_size = 0;
+                cairo_status_t stat = cairo_wrapper::cairo_surface_write_to_jpeg_mem(surface, &jpeg_data, &jpeg_size, image_flag);
+                if (stat != CAIRO_STATUS_SUCCESS) {
+                    GILState write_jpeg_failed_gil;
+                    const char* err_msg = cairo_status_to_string(stat);
+                    PyErr_SetString(PyExc_RuntimeError, err_msg);
+                    cairo_surface_destroy(surface);
+                    return bail();
+                }
+                GILState gil;
+                bytes_obj.ptr = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(jpeg_data), jpeg_size);
+                free(reinterpret_cast<void*>(jpeg_data));
+            }
+            else {
+                std::vector<unsigned char> bytes;
+                cairo_status_t stat = cairo_surface_write_to_png_stream(surface, cairo_wrapper::write_to_vector, &bytes);
+                if (stat != CAIRO_STATUS_SUCCESS) {
+                    GILState write_png_failed_gil;
+                    const char* err_msg = cairo_status_to_string(stat);
+                    PyErr_SetString(PyExc_RuntimeError, err_msg);
+                    cairo_surface_destroy(surface);
+                    return bail();
+                }
+                GILState gil;
+                bytes_obj.ptr = PyBytes_FromStringAndSize(reinterpret_cast<const char*>(bytes.data()), bytes.size());
             }
 
             GILState gil;
-            PyObjectPtr bytes_obj(PyBytes_FromStringAndSize((const char*)bytes.data(), bytes.size()));
             if (bytes_obj == nullptr) {
                 return bail();
             }

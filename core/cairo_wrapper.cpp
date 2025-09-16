@@ -18,6 +18,7 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include "cairo_wrapper.h"
 
 #include <cmath>
+#include <jpeglib.h>
 
 using namespace cairo_wrapper;
 
@@ -428,4 +429,161 @@ cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffe
     memcpy((void*)buffer, view->data + view->offset, length);
     view->offset += length;
     return CAIRO_STATUS_SUCCESS;
+}
+
+/*! This function creates a JPEG file in memory from a Cairo image surface.
+ * @param sfc Pointer to a Cairo surface. It should be an image surface of
+ * either CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_RGB24. Other formats are
+ * converted to CAIRO_FORMAT_RGB24 before compression.
+ * Please note that this may give unexpected results because JPEG does not
+ * support transparency. Thus, default background color is used to replace
+ * transparent regions. The default background color is black if not specified
+ * explicitly. Thus converting e.g. PDF surfaces without having any specific
+ * background color set will apear with black background and not white as you
+ * might expect. In such cases it is suggested to manually convert the surface
+ * to RGB24 before calling this function.
+ * @param data Pointer to a memory pointer. This parameter receives a pointer
+ * to the memory area where the final JPEG data is found in memory. This
+ * function reserves the memory properly and it has to be freed by the caller
+ * with free(3).
+ * @param len Pointer to a variable of type size_t which will receive the final
+ * lenght of the memory buffer.
+ * @param quality Compression quality, 0-100.
+ * @return On success the function returns CAIRO_STATUS_SUCCESS. In case of
+ * error CAIRO_STATUS_INVALID_FORMAT is returned.
+ */
+cairo_status_t cairo_wrapper::cairo_surface_write_to_jpeg_mem(cairo_surface_t *sfc, unsigned char **data, size_t *len, int quality)
+{
+   struct jpeg_compress_struct cinfo;
+   struct jpeg_error_mgr jerr;
+   JSAMPROW row_pointer[1];
+   cairo_surface_t *other = NULL;
+
+   // check valid input format (must be IMAGE_SURFACE && (ARGB32 || RGB24))
+   if (cairo_surface_get_type(sfc) != CAIRO_SURFACE_TYPE_IMAGE ||
+         (cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_ARGB32 &&
+         cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_RGB24))
+   {
+      // create a similar surface with a proper format if supplied input format
+      // does not fulfill the requirements
+      double x1, y1, x2, y2;
+      other = sfc;
+      cairo_t *ctx = cairo_create(other);
+      // get extents of original surface
+      cairo_clip_extents(ctx, &x1, &y1, &x2, &y2);
+      cairo_destroy(ctx);
+
+      // create new image surface
+      sfc = cairo_surface_create_similar_image(other, CAIRO_FORMAT_RGB24, x2 - x1, y2 - y1);
+      if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS)
+         return CAIRO_STATUS_INVALID_FORMAT;
+
+      // paint original surface to new surface
+      ctx = cairo_create(sfc);
+      cairo_set_source_surface(ctx, other, 0, 0);
+      cairo_paint(ctx);
+      cairo_destroy(ctx);
+   }
+
+   // finish queued drawing operations
+   cairo_surface_flush(sfc);
+
+   // init jpeg compression structures
+   cinfo.err = jpeg_std_error(&jerr);
+   jpeg_create_compress(&cinfo);
+
+   // set compression parameters
+   unsigned long jpeg_len = *len;
+   jpeg_mem_dest(&cinfo, data, &jpeg_len);
+   cinfo.image_width = cairo_image_surface_get_width(sfc);
+   cinfo.image_height = cairo_image_surface_get_height(sfc);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   //cinfo.in_color_space = JCS_EXT_BGRX;
+   cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32 ? JCS_EXT_BGRA : JCS_EXT_BGRX;
+#else
+   //cinfo.in_color_space = JCS_EXT_XRGB;
+   cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32 ? JCS_EXT_ARGB : JCS_EXT_XRGB;
+#endif
+   cinfo.input_components = 4;
+   jpeg_set_defaults(&cinfo);
+   jpeg_set_quality(&cinfo, quality, TRUE);
+
+   // start compressor
+   jpeg_start_compress(&cinfo, TRUE);
+
+   unsigned char * pixels = cairo_image_surface_get_data(sfc);
+   int stride = cairo_image_surface_get_stride(sfc);
+
+   // loop over all lines and compress
+   while (cinfo.next_scanline < cinfo.image_height)
+   {
+      row_pointer[0] = pixels + (cinfo.next_scanline * stride);
+      (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
+   }
+
+   // finalize and close everything
+   jpeg_finish_compress(&cinfo);
+   jpeg_destroy_compress(&cinfo);
+   *len = jpeg_len;
+
+   // destroy temporary image surface (if available)
+   if (other != NULL)
+      cairo_surface_destroy(sfc);
+
+   return CAIRO_STATUS_SUCCESS;
+}
+
+/*! This function decompresses a JPEG image from a memory buffer and creates a
+ * Cairo image surface.
+ * @param data Pointer to JPEG data (i.e. the full contents of a JPEG file read
+ * into this buffer).
+ * @param len Length of buffer in bytes.
+ * @return Returns a pointer to a cairo_surface_t structure. It should be
+ * checked with cairo_surface_status() for errors.
+ */
+cairo_surface_t *cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(void *data, size_t len)
+{
+   struct jpeg_decompress_struct cinfo;
+   struct jpeg_error_mgr jerr;
+   JSAMPROW row_pointer[1];
+   cairo_surface_t *sfc;
+ 
+   // initialize jpeg decompression structures
+   cinfo.err = jpeg_std_error(&jerr);
+   jpeg_create_decompress(&cinfo);
+   jpeg_mem_src(&cinfo, (const unsigned char*)data, len);
+   (void) jpeg_read_header(&cinfo, TRUE);
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   cinfo.out_color_space = JCS_EXT_BGRA;
+#else
+   cinfo.out_color_space = JCS_EXT_ARGB;
+#endif
+
+   // start decompressor
+   (void) jpeg_start_decompress(&cinfo);
+
+   // create Cairo image surface
+   sfc = cairo_image_surface_create(CAIRO_FORMAT_RGB24, cinfo.output_width, cinfo.output_height);
+   if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS)
+   {
+      jpeg_destroy_decompress(&cinfo);
+      return sfc;
+   }
+
+   // loop over all scanlines and fill Cairo image surface
+   while (cinfo.output_scanline < cinfo.output_height)
+   {
+      unsigned char *row_address = cairo_image_surface_get_data(sfc) +
+         (cinfo.output_scanline * cairo_image_surface_get_stride(sfc));
+      row_pointer[0] = row_address;
+      (void) jpeg_read_scanlines(&cinfo, row_pointer, 1);
+   }
+
+   // finish and close everything
+   cairo_surface_mark_dirty(sfc);
+   (void) jpeg_finish_decompress(&cinfo);
+   jpeg_destroy_decompress(&cinfo);
+
+   return sfc;
 }
