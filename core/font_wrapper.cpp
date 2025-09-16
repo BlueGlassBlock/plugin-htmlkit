@@ -7,53 +7,11 @@
 static PangoFontMap* global_fontmap = nullptr;
 static std::shared_mutex global_fontmap_mutex;
 
-static const char* fc_config_windows = R"(<?xml version="1.0"?>
-<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-<fontconfig>
-	<cachedir>C:/Users/blueg/AppData/Local/Temp/htmlkit_fontconfig</cachedir>
-	<dir>C:/Windows/Fonts</dir>
-	<alias>
-		<family>serif</family>
-		<prefer>
-			<family>Noto Serif</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>sans-serif</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>fantasy</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>cursive</family>
-		<prefer>
-			<family>Noto Sans</family>
-		</prefer>
-	</alias>
-	<alias>
-		<family>monospace</family>
-		<prefer>
-			<family>Noto Sans Mono</family>
-		</prefer>
-	</alias>
-</fontconfig>
-)";
-
 int init_fontconfig() {
     FcConfig* cfg = FcInitLoadConfigAndFonts();
     if (!cfg) {
         cfg = FcConfigCreate();
         if (!cfg) {
-            return -1;
-        }
-        if (FcConfigParseAndLoadFromMemory(cfg, (FcChar8*)fc_config_windows, FcTrue) != FcTrue) {
-            FcConfigDestroy(cfg);
             return -1;
         }
     }

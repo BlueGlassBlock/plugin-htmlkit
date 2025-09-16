@@ -431,6 +431,24 @@ cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffe
     return CAIRO_STATUS_SUCCESS;
 }
 
+/* Copyright 2018-2025 Bernhard R. Fischer, 4096R/8E24F29D <bf@abenteuerland.at>
+ *
+ * This file is part of Cairo_JPG.
+ *
+ * Cairo_JPG is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Cairo_JPG is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Cairo_JPG.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 /*! This function creates a JPEG file in memory from a Cairo image surface.
  * @param sfc Pointer to a Cairo surface. It should be an image surface of
  * either CAIRO_FORMAT_ARGB32 or CAIRO_FORMAT_RGB24. Other formats are
