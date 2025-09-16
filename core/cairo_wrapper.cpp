@@ -22,7 +22,8 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 using namespace cairo_wrapper;
 
-void border::cairo_add_path_arc(cairo_t* cr, double x, double y, double rx, double ry, double a1, double a2, bool neg) {
+void border::cairo_add_path_arc(cairo_t* cr, double x, double y, double rx, double ry,
+                                double a1, double a2, bool neg) {
     if (rx > 0 && ry > 0) {
         cairo_save(cr);
 
@@ -32,20 +33,19 @@ void border::cairo_add_path_arc(cairo_t* cr, double x, double y, double rx, doub
 
         if (neg) {
             cairo_arc_negative(cr, x, y, rx, a1, a2);
-        }
-        else {
+        } else {
             cairo_arc(cr, x, y, rx, a1, a2);
         }
 
         cairo_restore(cr);
-    }
-    else {
+    } else {
         cairo_move_to(cr, x, y);
     }
 }
 
 void border::cairo_set_color(cairo_t* cr, const litehtml::web_color& color) {
-    cairo_set_source_rgba(cr, color.red / 255.0, color.green / 255.0, color.blue / 255.0, color.alpha / 255.0);
+    cairo_set_source_rgba(cr, color.red / 255.0, color.green / 255.0,
+                          color.blue / 255.0, color.alpha / 255.0);
 }
 
 void border::draw_border() {
@@ -53,25 +53,17 @@ void border::draw_border() {
 
     if (radius_top_x && radius_top_y) {
         double start_angle = M_PI;
-        double end_angle = start_angle + M_PI / 2.0 / (top_border_width / (double)border_width + 1);
+        double end_angle =
+            start_angle + M_PI / 2.0 / (top_border_width / (double)border_width + 1);
 
-        cairo_add_path_arc(cr,
-                           left + radius_top_x,
-                           top + radius_top_y,
-                           radius_top_x - border_width,
-                           radius_top_y - border_width + (border_width - top_border_width),
-                           start_angle,
-                           end_angle, false);
+        cairo_add_path_arc(
+            cr, left + radius_top_x, top + radius_top_y, radius_top_x - border_width,
+            radius_top_y - border_width + (border_width - top_border_width),
+            start_angle, end_angle, false);
 
-        cairo_add_path_arc(cr,
-                           left + radius_top_x,
-                           top + radius_top_y,
-                           radius_top_x,
-                           radius_top_y,
-                           end_angle,
-                           start_angle, true);
-    }
-    else {
+        cairo_add_path_arc(cr, left + radius_top_x, top + radius_top_y, radius_top_x,
+                           radius_top_y, end_angle, start_angle, true);
+    } else {
         cairo_move_to(cr, left + border_width, top + top_border_width);
         cairo_line_to(cr, left, top);
     }
@@ -80,25 +72,20 @@ void border::draw_border() {
         cairo_line_to(cr, left, bottom - radius_bottom_y);
 
         double end_angle = M_PI;
-        double start_angle = end_angle - M_PI / 2.0 / ((double)bottom_border_width / (double)border_width + 1);
+        double start_angle =
+            end_angle -
+            M_PI / 2.0 / ((double)bottom_border_width / (double)border_width + 1);
 
-        cairo_add_path_arc(cr,
-                           left + radius_bottom_x,
-                           bottom - radius_bottom_y,
-                           radius_bottom_x,
-                           radius_bottom_y,
-                           end_angle,
-                           start_angle, true);
+        cairo_add_path_arc(cr, left + radius_bottom_x, bottom - radius_bottom_y,
+                           radius_bottom_x, radius_bottom_y, end_angle, start_angle,
+                           true);
 
-        cairo_add_path_arc(cr,
-                           left + radius_bottom_x,
-                           bottom - radius_bottom_y,
+        cairo_add_path_arc(cr, left + radius_bottom_x, bottom - radius_bottom_y,
                            radius_bottom_x - border_width,
-                           radius_bottom_y - border_width + (border_width - bottom_border_width),
-                           start_angle,
-                           end_angle, false);
-    }
-    else {
+                           radius_bottom_y - border_width +
+                               (border_width - bottom_border_width),
+                           start_angle, end_angle, false);
+    } else {
         cairo_line_to(cr, left, bottom);
         cairo_line_to(cr, left + border_width, bottom - bottom_border_width);
     }
@@ -134,20 +121,19 @@ void border::draw_border() {
     cairo_restore(cr);
 }
 
-void border::draw_line(double line_offset, double top_line_offset, double bottom_line_offset) {
+void border::draw_line(double line_offset, double top_line_offset,
+                       double bottom_line_offset) {
     if (radius_top_x && radius_top_y) {
         double end_angle = M_PI;
-        double start_angle = end_angle + M_PI / 2.0 / ((double)top_border_width / (double)border_width + 1);
+        double start_angle =
+            end_angle +
+            M_PI / 2.0 / ((double)top_border_width / (double)border_width + 1);
 
-        cairo_add_path_arc(cr,
-                           left + radius_top_x,
-                           top + radius_top_y,
+        cairo_add_path_arc(cr, left + radius_top_x, top + radius_top_y,
                            radius_top_x - line_offset,
                            radius_top_y - line_offset + (line_offset - top_line_offset),
-                           start_angle,
-                           end_angle, true);
-    }
-    else {
+                           start_angle, end_angle, true);
+    } else {
         cairo_move_to(cr, left + line_offset, top);
     }
 
@@ -155,17 +141,16 @@ void border::draw_line(double line_offset, double top_line_offset, double bottom
         cairo_line_to(cr, left + line_offset, bottom - radius_bottom_y);
 
         double start_angle = M_PI;
-        double end_angle = start_angle - M_PI / 2.0 / ((double)bottom_border_width / (double)border_width + 1);
+        double end_angle =
+            start_angle -
+            M_PI / 2.0 / ((double)bottom_border_width / (double)border_width + 1);
 
-        cairo_add_path_arc(cr,
-                           left + radius_bottom_x,
-                           bottom - radius_bottom_y,
+        cairo_add_path_arc(cr, left + radius_bottom_x, bottom - radius_bottom_y,
                            radius_bottom_x - line_offset,
-                           radius_bottom_y - line_offset + (line_offset - bottom_line_offset),
-                           start_angle,
-                           end_angle, true);
-    }
-    else {
+                           radius_bottom_y - line_offset +
+                               (line_offset - bottom_line_offset),
+                           start_angle, end_angle, true);
+    } else {
         cairo_line_to(cr, left + line_offset, bottom);
     }
 }
@@ -181,13 +166,10 @@ void border::draw_inset_outset(bool is_inset) {
 
     if (side == left_side || side == top_side) {
         line_color = is_inset ? dark_color : light_color;
-    }
-    else {
+    } else {
         line_color = is_inset ? light_color : dark_color;
     }
-    draw_line(border_width / 2.0,
-              top_border_width / 2.0,
-              bottom_border_width / 2.0);
+    draw_line(border_width / 2.0, top_border_width / 2.0, bottom_border_width / 2.0);
     cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
     cairo_set_dash(cr, nullptr, 0, 0);
     cairo_set_color(cr, line_color);
@@ -198,8 +180,7 @@ void border::draw_inset_outset(bool is_inset) {
 void border::draw_double() {
     if (border_width < 3) {
         draw_solid();
-    }
-    else {
+    } else {
         cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
         cairo_set_dash(cr, nullptr, 0, 0);
         cairo_set_color(cr, color);
@@ -207,9 +188,7 @@ void border::draw_double() {
         double line_width = border_width / 3.0;
         cairo_set_line_width(cr, line_width);
         // draw external line
-        draw_line(line_width / 2.0,
-                  top_border_width / 6.0,
-                  bottom_border_width / 6.0);
+        draw_line(line_width / 2.0, top_border_width / 6.0, bottom_border_width / 6.0);
         cairo_stroke(cr);
         // draw internal line
         draw_line(border_width - line_width / 2.0,
@@ -221,11 +200,10 @@ void border::draw_double() {
 
 void border::draw_dashed() {
     int line_length = std::abs(bottom - top);
-    if (!line_length) return;
+    if (!line_length)
+        return;
 
-    draw_line(border_width / 2.0,
-              top_border_width / 2.0,
-              bottom_border_width / 2.0);
+    draw_line(border_width / 2.0, top_border_width / 2.0, bottom_border_width / 2.0);
 
     int segment_length = border_width * 3;
     int seg_nums = line_length / segment_length;
@@ -249,9 +227,7 @@ void border::draw_dashed() {
 }
 
 void border::draw_solid() {
-    draw_line(border_width / 2.0,
-              top_border_width / 2.0,
-              bottom_border_width / 2.0);
+    draw_line(border_width / 2.0, top_border_width / 2.0, bottom_border_width / 2.0);
     cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
     cairo_set_dash(cr, nullptr, 0, 0);
     cairo_set_color(cr, color);
@@ -261,11 +237,10 @@ void border::draw_solid() {
 
 void border::draw_dotted() {
     // Zero length line
-    if (bottom == top) return;
+    if (bottom == top)
+        return;
 
-    draw_line(border_width / 2.0,
-              top_border_width / 2.0,
-              bottom_border_width / 2.0);
+    draw_line(border_width / 2.0, top_border_width / 2.0, bottom_border_width / 2.0);
 
     double line_length = std::abs(bottom - top);
 
@@ -294,8 +269,7 @@ void border::draw_dotted() {
 void border::draw_groove_ridge(bool is_groove) {
     if (border_width == 1) {
         draw_solid();
-    }
-    else {
+    } else {
         litehtml::web_color inner_line_color;
         litehtml::web_color outer_line_color;
         litehtml::web_color light_color = color;
@@ -308,8 +282,7 @@ void border::draw_groove_ridge(bool is_groove) {
         if (side == left_side || side == top_side) {
             outer_line_color = is_groove ? dark_color : light_color;
             inner_line_color = is_groove ? light_color : dark_color;
-        }
-        else {
+        } else {
             outer_line_color = is_groove ? light_color : dark_color;
             inner_line_color = is_groove ? dark_color : light_color;
         }
@@ -320,9 +293,7 @@ void border::draw_groove_ridge(bool is_groove) {
         double line_width = border_width / 2.0;
         cairo_set_line_width(cr, line_width);
         // draw external line
-        draw_line(line_width / 2.0,
-                  top_border_width / 4.0,
-                  bottom_border_width / 4.0);
+        draw_line(line_width / 2.0, top_border_width / 4.0, bottom_border_width / 4.0);
         cairo_set_color(cr, outer_line_color);
         cairo_stroke(cr);
         // draw internal line
@@ -334,11 +305,13 @@ void border::draw_groove_ridge(bool is_groove) {
     }
 }
 
-void conic_gradient::sector_patch(cairo_pattern_t* pat, const double radius, const double angle_A,
-                                  const litehtml::web_color& A,
+void conic_gradient::sector_patch(cairo_pattern_t* pat, const double radius,
+                                  const double angle_A, const litehtml::web_color& A,
                                   const double angle_B, const litehtml::web_color& B) {
-    const double A_r = A.red / 255.0, A_g = A.green / 255.0, A_b = A.blue / 255.0, A_a = A.alpha / 255.0;
-    const double B_r = B.red / 255.0, B_g = B.green / 255.0, B_b = B.blue / 255.0, B_a = B.alpha / 255.0;
+    const double A_r = A.red / 255.0, A_g = A.green / 255.0, A_b = A.blue / 255.0,
+                 A_a = A.alpha / 255.0;
+    const double B_r = B.red / 255.0, B_g = B.green / 255.0, B_b = B.blue / 255.0,
+                 B_a = B.alpha / 255.0;
 
     const double r_sin_A = radius * sin(angle_A), r_cos_A = radius * cos(angle_A);
     const double r_sin_B = radius * sin(angle_B), r_cos_B = radius * cos(angle_B);
@@ -366,14 +339,16 @@ void conic_gradient::sector_patch(cairo_pattern_t* pat, const double radius, con
     cairo_mesh_pattern_end_patch(pat);
 }
 
-cairo_pattern_t* conic_gradient::create_pattern(double angle, double radius,
-                                                const std::vector<bg_color_point>& color_points) {
+cairo_pattern_t*
+conic_gradient::create_pattern(double angle, double radius,
+                               const std::vector<bg_color_point>& color_points) {
     if (color_points.empty()) {
         return nullptr;
     }
 
     if (color_points.size() == 1) {
-        return create_pattern(angle, radius, {color_points[0], color_points[0], color_points[0]});
+        return create_pattern(angle, radius,
+                              {color_points[0], color_points[0], color_points[0]});
     }
 
     if (color_points.size() == 2) {
@@ -402,15 +377,15 @@ cairo_pattern_t* conic_gradient::create_pattern(double angle, double radius,
 }
 
 // closure is pointer to PyObject* that will hold the bytes object
-cairo_status_t cairo_wrapper::write_to_vector(void* closure, const unsigned char* data, unsigned int length) {
+cairo_status_t cairo_wrapper::write_to_vector(void* closure, const unsigned char* data,
+                                              unsigned int length) {
     auto* vec = static_cast<std::vector<unsigned char>*>(closure);
     if (!vec) {
         return CAIRO_STATUS_DEVICE_ERROR;
     }
     try {
         vec->insert(vec->end(), data, data + length);
-    }
-    catch (const std::bad_alloc&) {
+    } catch (const std::bad_alloc&) {
         return CAIRO_STATUS_NO_MEMORY;
     } catch (...) {
         return CAIRO_STATUS_DEVICE_ERROR;
@@ -418,9 +393,11 @@ cairo_status_t cairo_wrapper::write_to_vector(void* closure, const unsigned char
     return CAIRO_STATUS_SUCCESS;
 }
 
-cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffer, unsigned int length) {
+cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffer,
+                                             unsigned int length) {
     BufferView* view = static_cast<BufferView*>(closure);
-    if (!view || view->size <= 0 || !view->data || view->offset < 0 || view->offset > view->size) {
+    if (!view || view->size <= 0 || !view->data || view->offset < 0 ||
+        view->offset > view->size) {
         return CAIRO_STATUS_READ_ERROR;
     }
     if (view->offset + length > view->size) {
@@ -470,85 +447,90 @@ cairo_status_t cairo_wrapper::read_from_view(void* closure, unsigned char* buffe
  * @return On success the function returns CAIRO_STATUS_SUCCESS. In case of
  * error CAIRO_STATUS_INVALID_FORMAT is returned.
  */
-cairo_status_t cairo_wrapper::cairo_surface_write_to_jpeg_mem(cairo_surface_t *sfc, unsigned char **data, size_t *len, int quality)
-{
-   struct jpeg_compress_struct cinfo;
-   struct jpeg_error_mgr jerr;
-   JSAMPROW row_pointer[1];
-   cairo_surface_t *other = NULL;
+cairo_status_t cairo_wrapper::cairo_surface_write_to_jpeg_mem(cairo_surface_t* sfc,
+                                                              unsigned char** data,
+                                                              size_t* len,
+                                                              int quality) {
+    struct jpeg_compress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    JSAMPROW row_pointer[1];
+    cairo_surface_t* other = NULL;
 
-   // check valid input format (must be IMAGE_SURFACE && (ARGB32 || RGB24))
-   if (cairo_surface_get_type(sfc) != CAIRO_SURFACE_TYPE_IMAGE ||
-         (cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_ARGB32 &&
-         cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_RGB24))
-   {
-      // create a similar surface with a proper format if supplied input format
-      // does not fulfill the requirements
-      double x1, y1, x2, y2;
-      other = sfc;
-      cairo_t *ctx = cairo_create(other);
-      // get extents of original surface
-      cairo_clip_extents(ctx, &x1, &y1, &x2, &y2);
-      cairo_destroy(ctx);
+    // check valid input format (must be IMAGE_SURFACE && (ARGB32 || RGB24))
+    if (cairo_surface_get_type(sfc) != CAIRO_SURFACE_TYPE_IMAGE ||
+        (cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_ARGB32 &&
+         cairo_image_surface_get_format(sfc) != CAIRO_FORMAT_RGB24)) {
+        // create a similar surface with a proper format if supplied input format
+        // does not fulfill the requirements
+        double x1, y1, x2, y2;
+        other = sfc;
+        cairo_t* ctx = cairo_create(other);
+        // get extents of original surface
+        cairo_clip_extents(ctx, &x1, &y1, &x2, &y2);
+        cairo_destroy(ctx);
 
-      // create new image surface
-      sfc = cairo_surface_create_similar_image(other, CAIRO_FORMAT_RGB24, x2 - x1, y2 - y1);
-      if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS)
-         return CAIRO_STATUS_INVALID_FORMAT;
+        // create new image surface
+        sfc = cairo_surface_create_similar_image(other, CAIRO_FORMAT_RGB24, x2 - x1,
+                                                 y2 - y1);
+        if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS)
+            return CAIRO_STATUS_INVALID_FORMAT;
 
-      // paint original surface to new surface
-      ctx = cairo_create(sfc);
-      cairo_set_source_surface(ctx, other, 0, 0);
-      cairo_paint(ctx);
-      cairo_destroy(ctx);
-   }
+        // paint original surface to new surface
+        ctx = cairo_create(sfc);
+        cairo_set_source_surface(ctx, other, 0, 0);
+        cairo_paint(ctx);
+        cairo_destroy(ctx);
+    }
 
-   // finish queued drawing operations
-   cairo_surface_flush(sfc);
+    // finish queued drawing operations
+    cairo_surface_flush(sfc);
 
-   // init jpeg compression structures
-   cinfo.err = jpeg_std_error(&jerr);
-   jpeg_create_compress(&cinfo);
+    // init jpeg compression structures
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_compress(&cinfo);
 
-   // set compression parameters
-   unsigned long jpeg_len = *len;
-   jpeg_mem_dest(&cinfo, data, &jpeg_len);
-   cinfo.image_width = cairo_image_surface_get_width(sfc);
-   cinfo.image_height = cairo_image_surface_get_height(sfc);
+    // set compression parameters
+    unsigned long jpeg_len = *len;
+    jpeg_mem_dest(&cinfo, data, &jpeg_len);
+    cinfo.image_width = cairo_image_surface_get_width(sfc);
+    cinfo.image_height = cairo_image_surface_get_height(sfc);
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-   //cinfo.in_color_space = JCS_EXT_BGRX;
-   cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32 ? JCS_EXT_BGRA : JCS_EXT_BGRX;
+    // cinfo.in_color_space = JCS_EXT_BGRX;
+    cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32
+                               ? JCS_EXT_BGRA
+                               : JCS_EXT_BGRX;
 #else
-   //cinfo.in_color_space = JCS_EXT_XRGB;
-   cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32 ? JCS_EXT_ARGB : JCS_EXT_XRGB;
+    // cinfo.in_color_space = JCS_EXT_XRGB;
+    cinfo.in_color_space = cairo_image_surface_get_format(sfc) == CAIRO_FORMAT_ARGB32
+                               ? JCS_EXT_ARGB
+                               : JCS_EXT_XRGB;
 #endif
-   cinfo.input_components = 4;
-   jpeg_set_defaults(&cinfo);
-   jpeg_set_quality(&cinfo, quality, TRUE);
+    cinfo.input_components = 4;
+    jpeg_set_defaults(&cinfo);
+    jpeg_set_quality(&cinfo, quality, TRUE);
 
-   // start compressor
-   jpeg_start_compress(&cinfo, TRUE);
+    // start compressor
+    jpeg_start_compress(&cinfo, TRUE);
 
-   unsigned char * pixels = cairo_image_surface_get_data(sfc);
-   int stride = cairo_image_surface_get_stride(sfc);
+    unsigned char* pixels = cairo_image_surface_get_data(sfc);
+    int stride = cairo_image_surface_get_stride(sfc);
 
-   // loop over all lines and compress
-   while (cinfo.next_scanline < cinfo.image_height)
-   {
-      row_pointer[0] = pixels + (cinfo.next_scanline * stride);
-      (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
-   }
+    // loop over all lines and compress
+    while (cinfo.next_scanline < cinfo.image_height) {
+        row_pointer[0] = pixels + (cinfo.next_scanline * stride);
+        (void)jpeg_write_scanlines(&cinfo, row_pointer, 1);
+    }
 
-   // finalize and close everything
-   jpeg_finish_compress(&cinfo);
-   jpeg_destroy_compress(&cinfo);
-   *len = jpeg_len;
+    // finalize and close everything
+    jpeg_finish_compress(&cinfo);
+    jpeg_destroy_compress(&cinfo);
+    *len = jpeg_len;
 
-   // destroy temporary image surface (if available)
-   if (other != NULL)
-      cairo_surface_destroy(sfc);
+    // destroy temporary image surface (if available)
+    if (other != NULL)
+        cairo_surface_destroy(sfc);
 
-   return CAIRO_STATUS_SUCCESS;
+    return CAIRO_STATUS_SUCCESS;
 }
 
 /*! This function decompresses a JPEG image from a memory buffer and creates a
@@ -559,49 +541,49 @@ cairo_status_t cairo_wrapper::cairo_surface_write_to_jpeg_mem(cairo_surface_t *s
  * @return Returns a pointer to a cairo_surface_t structure. It should be
  * checked with cairo_surface_status() for errors.
  */
-cairo_surface_t *cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(void *data, size_t len)
-{
-   struct jpeg_decompress_struct cinfo;
-   struct jpeg_error_mgr jerr;
-   JSAMPROW row_pointer[1];
-   cairo_surface_t *sfc;
- 
-   // initialize jpeg decompression structures
-   cinfo.err = jpeg_std_error(&jerr);
-   jpeg_create_decompress(&cinfo);
-   jpeg_mem_src(&cinfo, (const unsigned char*)data, len);
-   (void) jpeg_read_header(&cinfo, TRUE);
+cairo_surface_t* cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(void* data,
+                                                                         size_t len) {
+    struct jpeg_decompress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    JSAMPROW row_pointer[1];
+    cairo_surface_t* sfc;
+
+    // initialize jpeg decompression structures
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo, (const unsigned char*)data, len);
+    (void)jpeg_read_header(&cinfo, TRUE);
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-   cinfo.out_color_space = JCS_EXT_BGRA;
+    cinfo.out_color_space = JCS_EXT_BGRA;
 #else
-   cinfo.out_color_space = JCS_EXT_ARGB;
+    cinfo.out_color_space = JCS_EXT_ARGB;
 #endif
 
-   // start decompressor
-   (void) jpeg_start_decompress(&cinfo);
+    // start decompressor
+    (void)jpeg_start_decompress(&cinfo);
 
-   // create Cairo image surface
-   sfc = cairo_image_surface_create(CAIRO_FORMAT_RGB24, cinfo.output_width, cinfo.output_height);
-   if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS)
-   {
-      jpeg_destroy_decompress(&cinfo);
-      return sfc;
-   }
+    // create Cairo image surface
+    sfc = cairo_image_surface_create(CAIRO_FORMAT_RGB24, cinfo.output_width,
+                                     cinfo.output_height);
+    if (cairo_surface_status(sfc) != CAIRO_STATUS_SUCCESS) {
+        jpeg_destroy_decompress(&cinfo);
+        return sfc;
+    }
 
-   // loop over all scanlines and fill Cairo image surface
-   while (cinfo.output_scanline < cinfo.output_height)
-   {
-      unsigned char *row_address = cairo_image_surface_get_data(sfc) +
-         (cinfo.output_scanline * cairo_image_surface_get_stride(sfc));
-      row_pointer[0] = row_address;
-      (void) jpeg_read_scanlines(&cinfo, row_pointer, 1);
-   }
+    // loop over all scanlines and fill Cairo image surface
+    while (cinfo.output_scanline < cinfo.output_height) {
+        unsigned char* row_address =
+            cairo_image_surface_get_data(sfc) +
+            (cinfo.output_scanline * cairo_image_surface_get_stride(sfc));
+        row_pointer[0] = row_address;
+        (void)jpeg_read_scanlines(&cinfo, row_pointer, 1);
+    }
 
-   // finish and close everything
-   cairo_surface_mark_dirty(sfc);
-   (void) jpeg_finish_decompress(&cinfo);
-   jpeg_destroy_decompress(&cinfo);
+    // finish and close everything
+    cairo_surface_mark_dirty(sfc);
+    (void)jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
 
-   return sfc;
+    return sfc;
 }

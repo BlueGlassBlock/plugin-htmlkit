@@ -12,6 +12,30 @@ dependencies = [
     "pygments>=2.10.0",
     "pymdown-extensions>=9.1",
 ]
+maintainers = [
+  { name = "Nyuan Zhang", email = "blueglassblock@outlook.com"}
+]
+license = "MIT"
+keywords = ["nonebot", "nonebot2", "htmlkit", "litehtml", "html"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Framework :: AsyncIO",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+Homepage = "https://github.com/nonebot/plugin-htmlkit"
+Repository = "https://github.com/nonebot/plugin-htmlkit.git"
+Issues = "https://github.com/nonebot/plugin-htmlkit/issues"
 
 [build-system]
 requires = ["setuptools>=42", "pip", "wheel", "ninja", "meson"]

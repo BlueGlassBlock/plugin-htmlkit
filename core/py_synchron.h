@@ -19,26 +19,22 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #define PY_SYNCHRON_H
 
 #include <Python.h>
-#include <memory>
-#include <string>
-#include <mutex>
 #include <condition_variable>
+#include <memory>
+#include <mutex>
+#include <string>
 
 class GILState {
-public:
+  public:
     PyGILState_STATE gil_state;
 
-    GILState() {
-        gil_state = PyGILState_Ensure();
-    }
+    GILState() { gil_state = PyGILState_Ensure(); }
 
-    ~GILState() {
-        PyGILState_Release(gil_state);
-    }
+    ~GILState() { PyGILState_Release(gil_state); }
 };
 
 class PyObjectPtr {
-public:
+  public:
     PyObject* ptr = nullptr;
 
     explicit PyObjectPtr(PyObject* ptr, bool inc_ref = false) : ptr(ptr) {
@@ -50,17 +46,11 @@ public:
         }
     }
 
-    ~PyObjectPtr() {
-        Py_XDECREF(ptr);
-    }
+    ~PyObjectPtr() { Py_XDECREF(ptr); }
 
-    bool operator==(const nullptr_t p) const {
-        return ptr == p;
-    }
+    bool operator==(const nullptr_t p) const { return ptr == p; }
 
-    bool operator!=(const nullptr_t p) const {
-        return ptr != p;
-    }
+    bool operator!=(const nullptr_t p) const { return ptr != p; }
 };
 
 struct PyWaiter {
@@ -85,4 +75,4 @@ struct PyWaiter {
 bool attach_waiter(PyObject* py_future, PyWaiter* waiter);
 PyObject* waiter_wait(PyWaiter* waiter);
 
-#endif //PY_SYNCHRON_H
+#endif // PY_SYNCHRON_H

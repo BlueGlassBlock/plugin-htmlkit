@@ -15,6 +15,13 @@ repos:
       - id: ruff-format
         stages: [pre-commit]
 
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.1
+    hooks:
+      - id: clang-format
+        args: [--style=file, -i, core/*.cpp, -i, core/*.h]
+        stages: [pre-commit]
+
   - repo: https://github.com/nonebot/nonemoji
     rev: v0.1.4
     hooks:

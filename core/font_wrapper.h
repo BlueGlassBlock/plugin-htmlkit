@@ -6,4 +6,4 @@
 
 int init_fontconfig();
 
-#endif //FONT_WRAPPER_H
+#endif // FONT_WRAPPER_H

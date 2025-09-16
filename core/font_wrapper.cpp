@@ -24,7 +24,7 @@ int init_fontconfig() {
         g_object_unref(global_fontmap);
     }
     global_fontmap = pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
-	g_object_ref_sink(global_fontmap);
+    g_object_ref_sink(global_fontmap);
     global_fontmap_mutex.unlock();
     return 0;
 }

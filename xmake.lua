@@ -16,7 +16,7 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 ]]
 add_rules("mode.debug", "mode.release", "mode.releasedbg")
 
-set_license("LGPL-2.1-or-later")
+set_license("LGPL-3.0-or-later")
 package("litehtml_local")
     set_homepage("http://www.litehtml.com/")
     set_description("Fast and lightweight HTML/CSS rendering engine")
