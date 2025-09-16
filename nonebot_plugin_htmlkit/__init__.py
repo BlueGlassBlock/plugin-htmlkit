@@ -2,7 +2,7 @@ from asyncio import get_running_loop, run_coroutine_threadsafe
 from collections.abc import Callable, Coroutine
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urljoin
 
 import aiofiles
@@ -142,6 +142,8 @@ async def html_to_pic(
     default_font_size: float = 12.0,
     font_name: str = "sans-serif",
     allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
     lang: str = "zh",
     culture: str = "CN",
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
@@ -158,6 +160,7 @@ async def html_to_pic(
         default_font_size,
         font_name,
         allow_refit,
+        -1 if image_format == "png" else jpeg_quality,
         lang,
         culture,
         lambda exc, exc_type, tb: nonebot.logger.opt(

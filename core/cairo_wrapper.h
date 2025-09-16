@@ -209,7 +209,8 @@ namespace cairo_wrapper
 
     cairo_status_t write_to_vector(void* closure, const unsigned char* data, unsigned int length);
     cairo_status_t read_from_view(void* closure, unsigned char* buffer, unsigned int length);
+    cairo_status_t cairo_surface_write_to_jpeg_mem(cairo_surface_t *sfc, unsigned char **data, size_t *len, int quality);
+    cairo_surface_t* cairo_image_surface_create_from_jpeg_mem(void *data, size_t len);
 }
-
 
 #endif //CAIRO_WRAPPER_H

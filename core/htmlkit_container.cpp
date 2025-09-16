@@ -1222,6 +1222,14 @@ void htmlkit_container::process_images() {
             }
             m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
         }
+        else if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0) {
+            cairo_surface_t* surface = cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(buf, (size_t)size);
+            if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+                cairo_surface_destroy(surface);
+                continue;
+            }
+            m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
+        }
     }
     m_img_fetch_waiters.clear();
 }

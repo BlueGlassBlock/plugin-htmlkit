@@ -26,6 +26,7 @@ def _render_internal(
     default_font_size: float,
     font_name: str,
     allow_refit: bool,
+    image_flag: int,
     lang: str,
     culture: str,
     exception_fn: _ExceptionHandleFn,
