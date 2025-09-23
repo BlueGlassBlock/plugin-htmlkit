@@ -19,13 +19,14 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include <chrono>
 #include <fontconfig/fontconfig.h>
 #include <litehtml.h>
+#include <litehtml/render_item.h>
 #include <thread>
 #include <utility>
 
 #include "cairo_wrapper.h"
 #include "container_info.h"
+#include "debug_container.h"
 #include "font_wrapper.h"
-#include "htmlkit_container.h"
 
 extern "C" {
 static PyObject* render(PyObject* mod, PyObject* args) {
@@ -34,14 +35,14 @@ static PyObject* render(PyObject* mod, PyObject* args) {
              *css_fetch_fn = nullptr;
     const char *font_name, *lang, *culture, *html_content, *base_url;
     float arg_dpi, arg_width, arg_height, default_font_size;
-    bool allow_refit;
+    bool allow_refit, debug_flag;
     int image_flag; // -1 for PNG, 0-100 for JPEG quality
     container_info info;
-    if (!PyArg_ParseTuple(args, "ssffffspissOOOOOO", &html_content, &base_url, &arg_dpi,
-                          &arg_width, &arg_height, &default_font_size, &font_name,
-                          &allow_refit, &image_flag, &lang, &culture, &exception_fn,
-                          &asyncio_run_coroutine_threadsafe, &urljoin, &asyncio_loop,
-                          &img_fetch_fn, &css_fetch_fn)) {
+    if (!PyArg_ParseTuple(args, "ssffffspissOOOOOOp", &html_content, &base_url,
+                          &arg_dpi, &arg_width, &arg_height, &default_font_size,
+                          &font_name, &allow_refit, &image_flag, &lang, &culture,
+                          &exception_fn, &asyncio_run_coroutine_threadsafe, &urljoin,
+                          &asyncio_loop, &img_fetch_fn, &css_fetch_fn, &debug_flag)) {
         return nullptr;
     }
     info.dpi = arg_dpi;
@@ -95,7 +96,7 @@ static PyObject* render(PyObject* mod, PyObject* args) {
         PangoFontMap* font_map =
             pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
         pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(font_map));
-        htmlkit_container container(base_url_str, info);
+        debug_container container(base_url_str, info);
         container.urljoin = urljoin;
         container.asyncio_run_coroutine_threadsafe = asyncio_run_coroutine_threadsafe;
         container.m_loop = asyncio_loop;
@@ -111,10 +112,15 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             width = best_width;
             doc->render(width);
         }
-        litehtml::pixel_t content_height = doc->content_height();
+        int content_height = doc->content_height();
 
         cairo_surface_t* surface =
             cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, content_height);
+        cairo_surface_t* dbg_surface =
+            debug_flag
+                ? cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, content_height)
+                : nullptr;
+        container.set_debug_surface(dbg_surface);
         if (!surface) {
             GILState surface_creation_failed_gil;
             PyErr_SetString(PyExc_RuntimeError, "Could not create surface");
@@ -125,6 +131,7 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             const char* err_msg = cairo_status_to_string(cairo_surface_status(surface));
             PyErr_SetString(PyExc_RuntimeError, err_msg);
             cairo_surface_destroy(surface);
+            cairo_surface_destroy(dbg_surface);
             return bail();
         }
         auto cr = cairo_create(surface);
@@ -150,26 +157,28 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             size_t jpeg_size = 0;
             cairo_status_t stat = cairo_wrapper::cairo_surface_write_to_jpeg_mem(
                 surface, &jpeg_data, &jpeg_size, image_flag);
+            cairo_surface_destroy(surface);
+            cairo_surface_destroy(dbg_surface);
             if (stat != CAIRO_STATUS_SUCCESS) {
                 GILState write_jpeg_failed_gil;
                 const char* err_msg = cairo_status_to_string(stat);
                 PyErr_SetString(PyExc_RuntimeError, err_msg);
-                cairo_surface_destroy(surface);
                 return bail();
             }
             GILState gil;
             bytes_obj.ptr = PyBytes_FromStringAndSize(
                 reinterpret_cast<const char*>(jpeg_data), jpeg_size);
-            free(reinterpret_cast<void*>(jpeg_data));
+            free(jpeg_data);
         } else {
             std::vector<unsigned char> bytes;
             cairo_status_t stat = cairo_surface_write_to_png_stream(
                 surface, cairo_wrapper::write_to_vector, &bytes);
+            cairo_surface_destroy(surface);
+            cairo_surface_destroy(dbg_surface);
             if (stat != CAIRO_STATUS_SUCCESS) {
                 GILState write_png_failed_gil;
                 const char* err_msg = cairo_status_to_string(stat);
                 PyErr_SetString(PyExc_RuntimeError, err_msg);
-                cairo_surface_destroy(surface);
                 return bail();
             }
             GILState gil;
@@ -185,14 +194,27 @@ static PyObject* render(PyObject* mod, PyObject* args) {
         if (set_result == nullptr) {
             return bail();
         }
-        PyObjectPtr call_soon_result(PyObject_CallMethod(
-            asyncio_loop, "call_soon_threadsafe", "OO", set_result.ptr, bytes_obj.ptr));
+
+        PyObjectPtr result_obj(nullptr);
+        if (debug_flag) {
+            std::string debug_html = container.export_debug_layers();
+            PyObjectPtr html_obj(
+                PyUnicode_FromStringAndSize(debug_html.c_str(), debug_html.size()));
+            if (html_obj == nullptr) {
+                return bail();
+            }
+            result_obj.ptr = PyTuple_Pack(2, bytes_obj.ptr, html_obj.ptr);
+        } else {
+            Py_INCREF(bytes_obj.ptr);
+            result_obj = bytes_obj;
+        }
+        PyObjectPtr call_soon_result(
+            PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO",
+                                set_result.ptr, result_obj.ptr));
         if (call_soon_result == nullptr) {
             return bail();
         }
-        cairo_surface_destroy(surface);
         Py_XDECREF(future);
-        return;
     }).detach();
     return future;
 }

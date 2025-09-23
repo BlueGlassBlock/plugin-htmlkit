@@ -1,5 +1,7 @@
 from time import time_ns
 
+import aiofiles
+
 from nonebot import get_driver, on_command, require
 from nonebot.adapters.onebot.v11 import Message
 from nonebot.adapters.onebot.v11.message import MessageSegment
@@ -7,7 +9,13 @@ from nonebot.drivers import HTTPClientMixin, Request
 from nonebot.params import CommandArg
 
 require("nonebot_plugin_htmlkit")
-from nonebot_plugin_htmlkit import html_to_pic, md_to_pic, none_fetcher, text_to_pic
+from nonebot_plugin_htmlkit import (
+    debug_html_to_pic,
+    html_to_pic,
+    md_to_pic,
+    none_fetcher,
+    text_to_pic,
+)
 
 render = on_command("render", aliases={"渲染"}, priority=5)
 
@@ -89,12 +97,16 @@ async def handle_render_pep(content: Message = CommandArg()):
     else:
         await render_pep.finish("无法解析 PEP 内容。")
     time_st = time_ns()
-    image_bytes = await html_to_pic(
+    image_bytes, debug_html = await debug_html_to_pic(
         html_content,
         base_url=pep_url,
         max_width=1000,
         css_fetch_fn=none_fetcher,
     )
+    async with aiofiles.open(
+        f"pep-{int(pep_number):04d}.html", "w", encoding="utf-8"
+    ) as f:
+        await f.write(debug_html)
     time_ed = time_ns()
     time_ms = (time_ed - time_st) / 1_000_000
     await render_pep.send(f"渲染耗时: {time_ms:.2f} ms")

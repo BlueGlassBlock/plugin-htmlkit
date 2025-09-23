@@ -29,7 +29,7 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include "container_info.h"
 #include "py_synchron.h"
 
-class htmlkit_container final : public litehtml::document_container {
+class htmlkit_container : public litehtml::document_container {
     cairo_wrapper::clip_box::vector m_clips;
     cairo_surface_t* m_temp_surface;
     cairo_t* m_temp_cr;

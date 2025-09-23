@@ -194,6 +194,73 @@ async def html_to_pic(
         loop,
         img_fetch_fn,
         css_fetch_fn,
+        False,
+    )
+
+
+async def debug_html_to_pic(
+    html: str,
+    *,
+    base_url: str = "",
+    dpi: float = 144.0,
+    max_width: float = 800.0,
+    device_height: float = 600.0,
+    default_font_size: float = 12.0,
+    font_name: str = "sans-serif",
+    allow_refit: bool = True,
+    image_format: Literal["png", "jpeg"] = "png",
+    jpeg_quality: int = 100,
+    lang: str = "zh",
+    culture: str = "CN",
+    img_fetch_fn: ImgFetchFn = combined_img_fetcher,
+    css_fetch_fn: CSSFetchFn = combined_css_fetcher,
+    urljoin_fn: Callable[[str, str], str] = urljoin,
+) -> tuple[bytes, str]:
+    """
+    将 HTML 渲染为图片以及可调试的 HTML 字符串。
+
+    Args:
+        html (str): HTML 内容
+        base_url (str, optional): 基础路径
+        dpi (float, optional): DPI
+        max_width (float, optional): 最大宽度
+        device_height (float, optional): 设备高度
+        default_font_size (float, optional): 默认字体大小
+        font_name (str, optional): 字体名称
+        allow_refit (bool, optional): 允许根据内容缩小宽度
+        image_format ("png" | "jpeg", optional): 图片格式
+        jpeg_quality (int, optional): jpeg图片质量, 1-100
+        lang (str, optional): 语言
+        culture (str, optional): 文化
+        img_fetch_fn (ImgFetchFn, optional): 图片获取函数
+        css_fetch_fn (CSSFetchFn, optional): CSS获取函数
+        urljoin_fn (Callable, optional): urljoin函数
+
+    Returns:
+        tuple[bytes, str]: 渲染后的图片字节和调试用 HTML 字符串
+    """
+    loop = get_running_loop()
+    return await core._render_internal(  # pyright: ignore[reportPrivateUsage]
+        html,
+        base_url,
+        dpi,
+        max_width,
+        device_height,
+        default_font_size,
+        font_name,
+        allow_refit,
+        -1 if image_format == "png" else jpeg_quality,
+        lang,
+        culture,
+        lambda exc, exc_type, tb: nonebot.logger.opt(
+            exception=(exc_type, exc, tb)
+        ).error("Exception in html_to_pic: "),
+        run_coroutine_threadsafe,
+        urljoin_fn,
+        loop,
+        img_fetch_fn,
+        css_fetch_fn,
+        True,
     )
 
 
