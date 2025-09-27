@@ -1,5 +1,5 @@
 from asyncio import get_running_loop, run_coroutine_threadsafe
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Mapping
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -382,7 +382,7 @@ async def md_to_pic(
 async def template_to_html(
     template_path: str,
     template_name: str,
-    filters: None | dict[str, Any] = None,
+    filters: None | Mapping[str, Any] = None,
     **kwargs,
 ) -> str:
     """
@@ -391,8 +391,8 @@ async def template_to_html(
     Args:
         template_path (str): 模板路径
         template_name (str): 模板名
-        filters (dict[str, Any] | None): 自定义过滤器
-        **kwargs: 模板内容
+        filters (Mapping[str, Any] | None): 自定义过滤器
+        **kwargs: 模板参数
 
     Returns:
         str: 渲染后的html字符串
@@ -412,11 +412,11 @@ async def template_to_html(
 async def template_to_pic(
     template_path: str,
     template_name: str,
-    templates: dict[Any, Any],
-    filters: None | dict[str, Any] = None,
+    templates: Mapping[Any, Any],
+    filters: None | Mapping[str, Any] = None,
     *,
     max_width: int = 500,
-    device_height: int = 10,
+    device_height: int = 600,
     base_url: str | None = None,
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
@@ -430,10 +430,10 @@ async def template_to_pic(
     Args:
         template_path (str): 模板路径
         template_name (str): 模板名
-        templates (dict[Any, Any]): 模板参数
-        filters (dict[str, Any] | None): 自定义过滤器
+        templates (Mapping[Any, Any]): 模板参数
+        filters (Mapping[str, Any] | None): 自定义过滤器
         max_width (int, optional): 图片最大宽度，默认为 500
-        device_height (int, optional): 设备高度，默认为 10
+        device_height (int, optional): 设备高度，默认为 800
         base_url (str | None, optional): 基础路径，默认为 "file://{template_path}"
         img_fetch_fn (ImgFetchFn, optional): 图片获取函数
         css_fetch_fn (CSSFetchFn, optional): css获取函数
