@@ -84,6 +84,9 @@ FC_LANG: str
 FONTCONFIG_USE_MMAP: str
 ```
 
+### 构建说明
+
+受限于 XMake, 构建时须使用 Python 3.10.11，并且在 `uv sync` 时需一同安装 `build` 组的依赖（`pip` `setuptools` `wheel` 等）。
 
 #### 许可证
 

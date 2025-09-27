@@ -151,42 +151,45 @@ static PyObject* render(PyObject* mod, PyObject* args) {
         cairo_surface_flush(surface);
         cairo_destroy(cr);
 
+        GILState gil;
         PyObjectPtr bytes_obj(nullptr);
         if (image_flag >= 0 && image_flag <= 100) {
             unsigned char* jpeg_data = nullptr;
             size_t jpeg_size = 0;
-            cairo_status_t stat = cairo_wrapper::cairo_surface_write_to_jpeg_mem(
-                surface, &jpeg_data, &jpeg_size, image_flag);
+            cairo_status_t stat;
+            Py_BEGIN_ALLOW_THREADS stat =
+                cairo_wrapper::cairo_surface_write_to_jpeg_mem(surface, &jpeg_data,
+                                                               &jpeg_size, image_flag);
             cairo_surface_destroy(surface);
             cairo_surface_destroy(dbg_surface);
+            Py_END_ALLOW_THREADS;
+
             if (stat != CAIRO_STATUS_SUCCESS) {
-                GILState write_jpeg_failed_gil;
                 const char* err_msg = cairo_status_to_string(stat);
                 PyErr_SetString(PyExc_RuntimeError, err_msg);
                 return bail();
             }
-            GILState gil;
             bytes_obj.ptr = PyBytes_FromStringAndSize(
                 reinterpret_cast<const char*>(jpeg_data), jpeg_size);
             free(jpeg_data);
         } else {
             std::vector<unsigned char> bytes;
-            cairo_status_t stat = cairo_surface_write_to_png_stream(
+            cairo_status_t stat;
+            Py_BEGIN_ALLOW_THREADS stat = cairo_surface_write_to_png_stream(
                 surface, cairo_wrapper::write_to_vector, &bytes);
             cairo_surface_destroy(surface);
             cairo_surface_destroy(dbg_surface);
+            Py_END_ALLOW_THREADS;
+
             if (stat != CAIRO_STATUS_SUCCESS) {
-                GILState write_png_failed_gil;
                 const char* err_msg = cairo_status_to_string(stat);
                 PyErr_SetString(PyExc_RuntimeError, err_msg);
                 return bail();
             }
-            GILState gil;
             bytes_obj.ptr = PyBytes_FromStringAndSize(
                 reinterpret_cast<const char*>(bytes.data()), bytes.size());
         }
 
-        GILState gil;
         if (bytes_obj == nullptr) {
             return bail();
         }

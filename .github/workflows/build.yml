@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-24.04-arm]
+        os: [ubuntu-latest, windows-2025, macos-latest, ubuntu-24.04-arm]
         include:
           - before-build: ""
             container: null
@@ -29,11 +29,11 @@ jobs:
               image: quay.io/pypa/manylinux_2_34_aarch64
             repair: "auditwheel repair dist/*.whl -w wheelhouse"
             replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-          - os: windows-latest
-            repair: "delvewheel repair dist/*.whl -w wheelhouse"
+          - os: windows-2025
             activate: ".venv/Scripts/activate"
             before-build: "cp .venv/Scripts/python.exe .venv/Scripts/python3.exe" # workaround xmake check for python3 executable
             replace-name: (Get-Content pyproject.toml) -replace 'name = "nonebot-plugin-htmlkit"', 'name = "test-env"' | Set-Content pyproject.toml
+            repair: "delvewheel repair -w wheelhouse dist/*.whl"
             pick-wheel: "(Get-ChildItem ..\\plugin-htmlkit\\wheelhouse\\*.whl | Select-Object -First 1).FullName"
           - os: macos-latest
             repair: "delocate-wheel -w wheelhouse dist/*.whl"
