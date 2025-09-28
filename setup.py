@@ -95,5 +95,6 @@ setup(
     },
     ext_modules=ext_modules,
     packages=["nonebot_plugin_htmlkit"],
+    package_data={"nonebot_plugin_htmlkit": ["templates/*"]},
     options={"bdist_wheel": {"py_limited_api": "cp310"}},
 )
