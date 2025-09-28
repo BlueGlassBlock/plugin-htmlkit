@@ -104,4 +104,10 @@ jobs:
           ${{ matrix.replace-name }}
           uv sync --group test --no-install-workspace
           uv add ${{ matrix.pick-wheel }} --no-install-workspace
-          uv run pytest
+          uv run pytest --output-img-dir ../plugin-htmlkit/tests_output
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: tests_output

@@ -528,3 +528,4 @@ CMakeLists.txt
 output/
 bindist/
 gitmodules.lock
+.fontconfig_cache/

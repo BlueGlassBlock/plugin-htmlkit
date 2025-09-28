@@ -35,8 +35,7 @@ static PyObject* render(PyObject* mod, PyObject* args) {
              *css_fetch_fn = nullptr;
     const char *font_name, *lang, *culture, *html_content, *base_url;
     float arg_dpi, arg_width, arg_height, default_font_size;
-    bool allow_refit, debug_flag;
-    int image_flag; // -1 for PNG, 0-100 for JPEG quality
+    int allow_refit, debug_flag, image_flag; // -1 for PNG, 0-100 for JPEG quality
     container_info info;
     if (!PyArg_ParseTuple(args, "ssffffspissOOOOOOp", &html_content, &base_url,
                           &arg_dpi, &arg_width, &arg_height, &default_font_size,
@@ -108,12 +107,12 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             " html { background-color: #fff; }");
         int width = arg_width;
         litehtml::pixel_t best_width = doc->render(arg_width);
+        fprintf(stderr, "best_width < arg_width: %d\n", best_width < arg_width);
         if (allow_refit && best_width < arg_width) {
             width = best_width;
             doc->render(width);
         }
         int content_height = doc->content_height();
-
         cairo_surface_t* surface =
             cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, content_height);
         cairo_surface_t* dbg_surface =

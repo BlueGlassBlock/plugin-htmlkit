@@ -58,6 +58,8 @@ dev = [
 test = [
     "nonebot2[fastapi,httpx]>=2.4.3",
     "nonebug>=0.4.3",
+    "numpy>=2.2.6",
+    "pillow>=11.3.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
 ]
