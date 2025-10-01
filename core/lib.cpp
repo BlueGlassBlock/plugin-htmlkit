@@ -107,7 +107,6 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             " html { background-color: #fff; }");
         int width = arg_width;
         litehtml::pixel_t best_width = doc->render(arg_width);
-        fprintf(stderr, "best_width < arg_width: %d\n", best_width < arg_width);
         if (allow_refit && best_width < arg_width) {
             width = best_width;
             doc->render(width);

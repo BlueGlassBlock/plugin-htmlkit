@@ -1,5 +1,5 @@
 from asyncio import get_running_loop, run_coroutine_threadsafe
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -380,7 +380,7 @@ async def md_to_pic(
 
 
 async def template_to_html(
-    template_path: str,
+    template_path: str | os.PathLike[str] | Sequence[str | os.PathLike[str]],
     template_name: str,
     filters: None | Mapping[str, Any] = None,
     **kwargs,
@@ -389,7 +389,8 @@ async def template_to_html(
     使用jinja2模板引擎渲染html
 
     Args:
-        template_path (str): 模板路径
+        template_path (str | os.PathLike[str] | Sequence[str | os.PathLike[str]]):
+            模板环境路径
         template_name (str): 模板名
         filters (Mapping[str, Any] | None): 自定义过滤器
         **kwargs: 模板参数
@@ -410,7 +411,7 @@ async def template_to_html(
 
 
 async def template_to_pic(
-    template_path: str,
+    template_path: str | os.PathLike[str] | Sequence[str | os.PathLike[str]],
     template_name: str,
     templates: Mapping[Any, Any],
     filters: None | Mapping[str, Any] = None,
@@ -428,13 +429,14 @@ async def template_to_pic(
     使用jinja2模板引擎通过html生成图片
 
     Args:
-        template_path (str): 模板路径
+        template_path (str | os.PathLike[str] | Sequence[str | os.PathLike[str]]):
+            模板环境路径
         template_name (str): 模板名
         templates (Mapping[Any, Any]): 模板参数
         filters (Mapping[str, Any] | None): 自定义过滤器
         max_width (int, optional): 图片最大宽度，默认为 500
         device_height (int, optional): 设备高度，默认为 800
-        base_url (str | None, optional): 基础路径，默认为 "file://{template_path}"
+        base_url (str | None, optional): 基础路径，默认为 "file://{template.filename}"
         img_fetch_fn (ImgFetchFn, optional): 图片获取函数
         css_fetch_fn (CSSFetchFn, optional): css获取函数
         allow_refit (bool, optional): 允许根据内容缩小宽度
@@ -453,9 +455,15 @@ async def template_to_pic(
             template_env.filters[filter_name] = filter_func
             logger.debug(f"Custom filter loaded: {filter_name}")
     template = template_env.get_template(template_name)
+    if not base_url:
+        if template.filename:
+            base_url = f"file://{Path(template.filename).as_posix()}"
+        else:
+            base_url = "file:///"
+            logger.warning("Template has no filename, base_url set to `file:///`")
     return await html_to_pic(
         html=await template.render_async(**templates),
-        base_url=base_url or f"file://{template_path}",
+        base_url=base_url,
         max_width=max_width,
         device_height=device_height,
         img_fetch_fn=img_fetch_fn,
