@@ -53,6 +53,7 @@ package_end()
 
 add_requires("litehtml_local", "pango", "cairo", "libjpeg-turbo", "aklomp-base64", "fmt")
 set_languages("c++17")
+add_requireconfs("**.cairo", { override = true, xlib = false })
 add_requires("python", { system = true, version = "3.10.11", configs = { shared = true } })
 add_requireconfs("**.python", { override = true, version = "3.10.11", headeronly = true, shared = true })
 add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
