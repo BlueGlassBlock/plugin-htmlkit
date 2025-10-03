@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-2025, macos-latest, ubuntu-24.04-arm]
+        name: [manylinux-x64, manylinux-arm64, musllinux-x64, musllinux-arm64, windows-x64, windows-arm64, macos-x64, macos-arm64]
         include:
           - before-build: ""
             container: null
@@ -19,23 +19,50 @@ jobs:
             activate: "source .venv/bin/activate"
             replace-name: ""
             pick-wheel: "$(ls ../plugin-htmlkit/wheelhouse/*.whl | head -n1)"
-          - os: ubuntu-latest
+          - name: manylinux-x64
+            os: ubuntu-24.04
             container:
               image: quay.io/pypa/manylinux_2_34_x86_64
             repair: "auditwheel repair dist/*.whl -w wheelhouse"
             replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-          - os: ubuntu-24.04-arm
+          - name: manylinux-arm64
+            os: ubuntu-24.04-arm
             container:
               image: quay.io/pypa/manylinux_2_34_aarch64
             repair: "auditwheel repair dist/*.whl -w wheelhouse"
             replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-          - os: windows-2025
+          - name: musllinux-x64
+            os: ubuntu-24.04
+            container:
+              image: quay.io/pypa/musllinux_1_2_x86_64
+            repair: "auditwheel repair dist/*.whl -w wheelhouse"
+            replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
+          - name: musllinux-arm64
+            os: ubuntu-24.04-arm
+            container:
+              image: quay.io/pypa/musllinux_1_2_aarch64
+            repair: "auditwheel repair dist/*.whl -w wheelhouse"
+            replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
+          - name: windows-x64
+            os: windows-2025
             activate: ".venv/Scripts/activate"
             before-build: "cp .venv/Scripts/python.exe .venv/Scripts/python3.exe" # workaround xmake check for python3 executable
             replace-name: (Get-Content pyproject.toml) -replace 'name = "nonebot-plugin-htmlkit"', 'name = "test-env"' | Set-Content pyproject.toml
             repair: "delvewheel repair -w wheelhouse dist/*.whl"
             pick-wheel: "(Get-ChildItem ..\\plugin-htmlkit\\wheelhouse\\*.whl | Select-Object -First 1).FullName"
-          - os: macos-latest
+          - name: windows-arm64
+            os: windows-11-arm
+            activate: ".venv/Scripts/activate"
+            before-build: "cp .venv/Scripts/python.exe .venv/Scripts/python3.exe" # workaround xmake check for python3 executable
+            replace-name: (Get-Content pyproject.toml) -replace 'name = "nonebot-plugin-htmlkit"', 'name = "test-env"' | Set-Content pyproject.toml
+            repair: "delvewheel repair -w wheelhouse dist/*.whl"
+            pick-wheel: "(Get-ChildItem ..\\plugin-htmlkit\\wheelhouse\\*.whl | Select-Object -First 1).FullName"
+          - name: macos-arm64
+            os: macos-15
+            repair: "delocate-wheel -w wheelhouse dist/*.whl"
+            replace-name: "sed -i '' -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
+          - name: macos-x64
+            os: macos-15-intel
             repair: "delocate-wheel -w wheelhouse dist/*.whl"
             replace-name: "sed -i '' -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
     env:
@@ -59,10 +86,10 @@ jobs:
         with:
           xmake-version: latest
           package-cache: true
-          package-cache-key: packages-${{ matrix.os }}-${{ hashFiles('xmake.lua', 'litehtml/**', '!litehtml/CMakeLists.txt') }}
+          package-cache-key: packages-${{ matrix.name }}-${{ hashFiles('xmake.lua', 'litehtml/**', '!litehtml/CMakeLists.txt') }}
           project-path: .
           actions-cache-folder: '.xmake-cache'
-          actions-cache-key: xmake-${{ matrix.os }}-${{ hashFiles('xmake.lua') }}
+          actions-cache-key: xmake-${{ matrix.name }}-${{ hashFiles('xmake.lua') }}
       - name: Pin Python Version
         run: uv python pin 3.10.11
       - name: Build wheels
