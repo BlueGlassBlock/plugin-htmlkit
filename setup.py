@@ -11,9 +11,9 @@ from setuptools.command.egg_info import egg_info
 from setuptools.command.sdist import sdist
 
 
-def get_submodules(ref="HEAD"):
+def get_submodules(ref="HEAD", re_update=False):
     lock = Path("./gitmodules.lock")
-    if lock.exists():
+    if lock.exists() and not re_update:
         with lock.open("r") as f:
             return json.load(f)
     out = check_output(["git", "ls-tree", ref], text=True)
@@ -75,6 +75,8 @@ class XmakeBuildExt(build_ext):
             check_call(config_cmd)
             check_call(["xmake", "build", "-vD", "core"])
             check_call(["xmake", "install", "-o", "bindist"])
+        else:
+            get_submodules(re_update=True)  # ensure submodules are correct
         dylib_target = build_target.joinpath("core.so").with_suffix(get_abi3_suffix())
         copyfile(core_dylib, dylib_target)
 

@@ -136,7 +136,7 @@ async def html_to_pic(
     html: str,
     *,
     base_url: str = "",
-    dpi: float = 144.0,
+    dpi: float = 96.0,
     max_width: float = 800.0,
     device_height: float = 600.0,
     default_font_size: float = 12.0,

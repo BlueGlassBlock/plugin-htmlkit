@@ -761,9 +761,23 @@ build = [
     { name = "wheel" },
 ]
 dev = [
+    { name = "auditwheel", marker = "sys_platform == 'linux'" },
+    { name = "delocate", marker = "sys_platform == 'darwin'" },
+    { name = "delvewheel", marker = "sys_platform == 'win32'" },
+    { name = "meson" },
+    { name = "ninja" },
     { name = "nonebot-adapter-console" },
     { name = "nonebot-adapter-onebot" },
     { name = "nonebot2", extra = ["fastapi", "httpx"] },
+    { name = "nonebug" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pillow" },
+    { name = "pip" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "setuptools" },
+    { name = "wheel" },
 ]
 test = [
     { name = "nonebot2", extra = ["fastapi", "httpx"] },
@@ -797,9 +811,22 @@ build = [
     { name = "wheel", specifier = ">=0.45.1" },
 ]
 dev = [
+    { name = "auditwheel", marker = "sys_platform == 'linux'", specifier = ">=6.4.2" },
+    { name = "delocate", marker = "sys_platform == 'darwin'", specifier = ">=0.13.0" },
+    { name = "delvewheel", marker = "sys_platform == 'win32'", specifier = ">=1.11.1" },
+    { name = "meson", specifier = ">=1.9.0" },
+    { name = "ninja", specifier = ">=1.13.0" },
     { name = "nonebot-adapter-console", specifier = ">=0.9.0" },
     { name = "nonebot-adapter-onebot", specifier = ">=2.4.6" },
     { name = "nonebot2", extras = ["fastapi", "httpx"], specifier = ">=2.4.3" },
+    { name = "nonebug", specifier = ">=0.4.3" },
+    { name = "numpy", specifier = ">=2.2.6" },
+    { name = "pillow", specifier = ">=11.3.0" },
+    { name = "pip", specifier = ">=25.2" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-asyncio", specifier = ">=1.1.0" },
+    { name = "setuptools", specifier = ">=80.9.0" },
+    { name = "wheel", specifier = ">=0.45.1" },
 ]
 test = [
     { name = "nonebot2", extras = ["fastapi", "httpx"], specifier = ">=2.4.3" },
