@@ -51,11 +51,13 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "pango", "cairo", "libjpeg-turbo", "aklomp-base64", "fmt")
+add_requires("litehtml_local", "pango", "libjpeg-turbo", "aklomp-base64", "fmt")
 set_languages("c++17")
+add_requires("cairo", {configs = { xlib = false }})
+add_requireconfs("**.cairo", { override = true, configs = { xlib = false } })
 add_requires("python", { system = true, version = "3.10.11", configs = { shared = true } })
-add_requireconfs("**.python", { override = true, version = "3.10.11", headeronly = true, shared = true })
-add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, shared = false })
+add_requireconfs("**.python", { override = true, version = "3.10.11", configs = { headeronly = true, shared = true } })
+add_requireconfs("**|python|cmake|ninja|meson", { override = true, system = false, configs = { shared = false } })
 function require_htmlkit()
     if is_plat("linux") then
         if is_arch("x86_64") then
