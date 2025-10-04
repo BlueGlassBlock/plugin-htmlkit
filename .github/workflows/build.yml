@@ -72,7 +72,6 @@ jobs:
       - name: Setup Prequesites
         run: |
           git config --global --add safe.directory '*'
-          ${{ matrix.activate }}
           uv venv
           uv sync --only-group build --no-install-workspace
           ${{ matrix.before-build }}
