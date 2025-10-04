@@ -47,7 +47,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
       XMAKE_CONFIG_MODE: release
 
-    name: Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
 

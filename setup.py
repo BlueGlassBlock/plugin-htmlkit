@@ -44,6 +44,7 @@ class EggInfo(egg_info):
     def find_sources(self):
         super().find_sources()
         get_submodules()
+        self.filelist.recursive_include("repo", "*.lua")
         self.filelist.include("core/**")
         self.filelist.extend(["xmake.lua", "gitmodules.lock"])
 
@@ -54,6 +55,7 @@ class SDist(sdist):
         # if bindist exists, copy it to source dist for faster local installation
         if Path("bindist").exists():
             self.copy_tree(Path("bindist"), str(Path(base_dir) / "bindist"))
+            get_submodules(re_update=True)  # ensure submodules are correct
 
 
 EXT_NAME = "nonebot_plugin_htmlkit.core"
@@ -75,8 +77,6 @@ class XmakeBuildExt(build_ext):
             check_call(config_cmd)
             check_call(["xmake", "build", "-vD", "core"])
             check_call(["xmake", "install", "-o", "bindist"])
-        else:
-            get_submodules(re_update=True)  # ensure submodules are correct
         dylib_target = build_target.joinpath("core.so").with_suffix(get_abi3_suffix())
         copyfile(core_dylib, dylib_target)
 
