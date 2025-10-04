@@ -35,13 +35,15 @@ static PyObject* render(PyObject* mod, PyObject* args) {
              *css_fetch_fn = nullptr;
     const char *font_name, *lang, *culture, *html_content, *base_url;
     float arg_dpi, arg_width, arg_height, default_font_size;
-    int allow_refit, debug_flag, image_flag; // -1 for PNG, 0-100 for JPEG quality
+    int fast_data_scheme, allow_refit, debug_flag,
+        image_flag; // image_flag: -1 for PNG, 0-100 for JPEG quality
     container_info info;
-    if (!PyArg_ParseTuple(args, "ssffffspissOOOOOOp", &html_content, &base_url,
+    if (!PyArg_ParseTuple(args, "ssffffspissOOOOOOpp", &html_content, &base_url,
                           &arg_dpi, &arg_width, &arg_height, &default_font_size,
                           &font_name, &allow_refit, &image_flag, &lang, &culture,
                           &exception_fn, &asyncio_run_coroutine_threadsafe, &urljoin,
-                          &asyncio_loop, &img_fetch_fn, &css_fetch_fn, &debug_flag)) {
+                          &asyncio_loop, &img_fetch_fn, &css_fetch_fn,
+                          &fast_data_scheme, &debug_flag)) {
         return nullptr;
     }
     info.dpi = arg_dpi;
@@ -52,6 +54,7 @@ static PyObject* render(PyObject* mod, PyObject* args) {
     info.language = std::string(lang);
     info.culture = std::string(culture);
     info.font_options = cairo_font_options_create();
+    info.native_data_scheme = fast_data_scheme;
     std::string html_content_str(html_content), base_url_str(base_url);
     cairo_font_options_set_antialias(info.font_options, CAIRO_ANTIALIAS_DEFAULT);
     cairo_font_options_set_hint_style(info.font_options, CAIRO_HINT_STYLE_NONE);

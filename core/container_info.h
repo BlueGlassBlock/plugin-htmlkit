@@ -34,6 +34,7 @@ struct container_info {
     // The "CN" part in "zh-CN"
     std::string culture;
     cairo_font_options_t* font_options;
+    bool native_data_scheme;
 };
 
 #endif // CONTAINER_INFO_H

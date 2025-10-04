@@ -36,6 +36,7 @@ def _render_internal(
     loop: asyncio.AbstractEventLoop,
     img_fetch_fn: _ImageFetchFn,
     css_fetch_fn: _CSSFetchFn,
+    native_data_scheme: bool,
     debug_flag: Literal[False],
     /,
 ) -> asyncio.Future[bytes]: ...
@@ -58,6 +59,7 @@ def _render_internal(
     loop: asyncio.AbstractEventLoop,
     img_fetch_fn: _ImageFetchFn,
     css_fetch_fn: _CSSFetchFn,
+    native_data_scheme: bool,
     debug_flag: Literal[True],
     /,
 ) -> asyncio.Future[tuple[bytes, str]]: ...
@@ -79,6 +81,7 @@ def _render_internal(
     loop: asyncio.AbstractEventLoop,
     img_fetch_fn: _ImageFetchFn,
     css_fetch_fn: _CSSFetchFn,
+    native_data_scheme: bool,
     debug_flag: bool,
     /,
 ) -> asyncio.Future[bytes | tuple[bytes, str]]: ...

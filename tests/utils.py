@@ -16,6 +16,7 @@ def mse(img1, img2):
 
 
 REF_PATH = Path(__file__).parent / "ref_images"
+REF_PATH.mkdir(exist_ok=True, parents=True)
 
 
 async def assert_image_equal(img_bytes, filename, regen_ref, output_img_dir):

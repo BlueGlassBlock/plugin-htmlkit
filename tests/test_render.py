@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from utils import assert_image_equal
 
@@ -26,10 +24,6 @@ HTML_SOURCES = {
 REFIT = [True, False]
 
 FORMATS = ["png", "jpeg"]
-
-REF_PATH = Path(__file__).parent / "ref_images"
-
-REF_PATH.mkdir(exist_ok=True, parents=True)
 
 
 @pytest.mark.asyncio

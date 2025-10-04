@@ -1,9 +1,10 @@
 from asyncio import get_running_loop, run_coroutine_threadsafe
+import base64
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 import os
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin
 
 import aiofiles
 import jinja2
@@ -55,6 +56,27 @@ async def read_tpl(path: str) -> str:
     return await read_file(f"{TEMPLATES_PATH}/{path}")
 
 
+def _crop_str(s: str, max_len: int = 50) -> str:
+    if len(s) > max_len:
+        return s[:max_len] + "..."
+    return s
+
+
+async def data_scheme_img_fetcher(url: str) -> bytes | None:
+    if url.startswith("data:"):
+        try:
+            header, data = url.split(",", 1)
+            if "base64" in header:
+                return base64.b64decode(data)
+            else:
+                return unquote(data).encode("utf-8")
+        except Exception as e:
+            logger.opt(exception=e).warning(
+                f"Failed to decode data scheme URL: {_crop_str(url)}"
+            )
+    return None
+
+
 async def filesystem_img_fetcher(url: str) -> bytes | None:
     if url.startswith("file://"):
         path = url[7:]
@@ -63,7 +85,9 @@ async def filesystem_img_fetcher(url: str) -> bytes | None:
                 async with aiofiles.open(path, "rb") as f:
                     return await f.read()
             except Exception as e:
-                logger.opt(exception=e).warning(f"Failed to read local file {path}")
+                logger.opt(exception=e).warning(
+                    f"Failed to read local file {_crop_str(path)}"
+                )
     return None
 
 
@@ -86,10 +110,28 @@ async def network_img_fetcher(url: str) -> bytes | None:
 
 
 async def combined_img_fetcher(url: str) -> bytes | None:
+    content = await data_scheme_img_fetcher(url)
+    if content is not None:
+        return content
     content = await filesystem_img_fetcher(url)
     if content is not None:
         return content
     return await network_img_fetcher(url)
+
+
+async def data_scheme_css_fetcher(url: str) -> str | None:
+    if url.startswith("data:"):
+        try:
+            header, data = url.split(",", 1)
+            if "base64" in header:
+                return base64.b64decode(data).decode("utf-8")
+            else:
+                return unquote(data)
+        except Exception as e:
+            logger.opt(exception=e).warning(
+                f"Failed to decode data scheme URL: {_crop_str(url)}"
+            )
+    return None
 
 
 async def filesystem_css_fetcher(url: str) -> str | None:
@@ -100,7 +142,9 @@ async def filesystem_css_fetcher(url: str) -> str | None:
                 async with aiofiles.open(path, encoding="utf-8") as f:
                     return await f.read()
             except Exception as e:
-                logger.opt(exception=e).warning(f"Failed to read local CSS file {path}")
+                logger.opt(exception=e).warning(
+                    f"Failed to read local CSS file {_crop_str(path)}"
+                )
     return None
 
 
@@ -118,14 +162,21 @@ async def network_css_fetcher(url: str) -> str | None:
             try:
                 return response.content.decode("utf-8")
             except Exception as e:
-                logger.opt(exception=e).warning(f"Failed to decode CSS from {url}")
+                logger.opt(exception=e).warning(
+                    f"Failed to decode CSS from {_crop_str(url)}"
+                )
         return None
     except Exception as e:
-        logger.opt(exception=e).warning(f"Failed to fetch CSS resource from {url}")
+        logger.opt(exception=e).warning(
+            f"Failed to fetch CSS resource from {_crop_str(url)}"
+        )
     return None
 
 
 async def combined_css_fetcher(url: str) -> str | None:
+    content = await data_scheme_css_fetcher(url)
+    if content is not None:
+        return content
     content = await filesystem_css_fetcher(url)
     if content is not None:
         return content
@@ -148,6 +199,7 @@ async def html_to_pic(
     culture: str = "CN",
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
+    native_data_scheme: bool = True,
     urljoin_fn: Callable[[str, str], str] = urljoin,
 ) -> bytes:
     """
@@ -168,6 +220,7 @@ async def html_to_pic(
         culture (str, optional): 文化
         img_fetch_fn (ImgFetchFn, optional): 图片获取函数
         css_fetch_fn (CSSFetchFn, optional): CSS获取函数
+        native_data_scheme (bool, optional): 是否使用原生代码解码 base64 data scheme URL
         urljoin_fn (Callable, optional): urljoin函数
 
     Returns:
@@ -194,6 +247,7 @@ async def html_to_pic(
         loop,
         img_fetch_fn,
         css_fetch_fn,
+        native_data_scheme,
         False,
     )
 
@@ -214,6 +268,7 @@ async def debug_html_to_pic(
     culture: str = "CN",
     img_fetch_fn: ImgFetchFn = combined_img_fetcher,
     css_fetch_fn: CSSFetchFn = combined_css_fetcher,
+    native_data_scheme: bool = True,
     urljoin_fn: Callable[[str, str], str] = urljoin,
 ) -> tuple[bytes, str]:
     """
@@ -234,6 +289,7 @@ async def debug_html_to_pic(
         culture (str, optional): 文化
         img_fetch_fn (ImgFetchFn, optional): 图片获取函数
         css_fetch_fn (CSSFetchFn, optional): CSS获取函数
+        native_data_scheme (bool, optional): 是否使用原生代码解码 base64 data scheme URL
         urljoin_fn (Callable, optional): urljoin函数
 
     Returns:
@@ -260,6 +316,7 @@ async def debug_html_to_pic(
         loop,
         img_fetch_fn,
         css_fetch_fn,
+        native_data_scheme,
         True,
     )
 

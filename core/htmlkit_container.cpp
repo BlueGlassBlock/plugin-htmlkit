@@ -18,11 +18,10 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 #include "htmlkit_container.h"
 #include "cairo_wrapper.h"
 #include <array>
+#include <libbase64.h>
 #include <pango/pango-font.h>
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
-
-#include <chrono>
 
 #pragma region BLANKET_IMPLS
 
@@ -1197,6 +1196,50 @@ void htmlkit_container::set_base_url(const char* base_url) {
     }
 }
 
+std::vector<char> decode_data_url_base64(const char* input) {
+    const char* base64_start = std::strstr(input, ";base64,");
+    if (!base64_start)
+        return {};
+
+    base64_start += 8;
+
+    size_t base64_len = strlen(base64_start);
+    if (base64_len == 0)
+        return {};
+
+    size_t out_capacity = base64_len / 4 * 3 + 4;
+    std::vector<char> decoded(out_capacity);
+
+    size_t out_len = 0;
+    base64_decode(base64_start, base64_len, decoded.data(), &out_len, 0);
+
+    decoded.resize(out_len);
+    return std::move(decoded);
+}
+
+cairo_surface_t* create_image_from_data(char* buf, size_t size) {
+    if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
+        cairo_wrapper::BufferView view{buf, static_cast<unsigned int>(size), 0};
+        cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(
+            cairo_wrapper::read_from_view, &view);
+        if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+            cairo_surface_destroy(surface);
+            return nullptr;
+        }
+        return surface;
+    }
+    if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0) {
+        cairo_surface_t* surface =
+            cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(buf, size);
+        if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+            cairo_surface_destroy(surface);
+            return nullptr;
+        }
+        return surface;
+    }
+    return nullptr;
+}
+
 void htmlkit_container::load_image(const char* src, const char* baseurl,
                                    bool redraw_on_ready) {
     if (src == nullptr) {
@@ -1204,6 +1247,16 @@ void htmlkit_container::load_image(const char* src, const char* baseurl,
     }
     if (baseurl == nullptr || !baseurl[0]) {
         baseurl = m_base_url.c_str();
+    }
+    if (strncmp(src, "data:", 5) == 0 && m_info.native_data_scheme) {
+        auto decoded = decode_data_url_base64(src);
+        if (!decoded.empty()) {
+            if (cairo_surface_t* surface =
+                    create_image_from_data(decoded.data(), decoded.size())) {
+                m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
+                return;
+            }
+        }
     }
     if (m_img_fetch_fn == nullptr) {
         return;
@@ -1231,7 +1284,6 @@ void htmlkit_container::load_image(const char* src, const char* baseurl,
     }
     m_img_fetch_waiters.emplace_back(src, baseurl, std::move(waiter));
 }
-
 void htmlkit_container::process_images() {
     GILState gil;
     for (auto& [src, baseurl, waiter] : m_img_fetch_waiters) {
@@ -1249,24 +1301,7 @@ void htmlkit_container::process_images() {
             handle_exception();
             continue;
         }
-        // PNG magic
-        if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
-            cairo_wrapper::BufferView view{buf, (unsigned int)size, 0};
-            cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(
-                cairo_wrapper::read_from_view, &view);
-            if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-                cairo_surface_destroy(surface);
-                continue;
-            }
-            m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
-        } else if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0) {
-            cairo_surface_t* surface =
-                cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(buf,
-                                                                        (size_t)size);
-            if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-                cairo_surface_destroy(surface);
-                continue;
-            }
+        if (cairo_surface_t* surface = create_image_from_data(buf, size)) {
             m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
         }
     }
@@ -1298,6 +1333,15 @@ std::function<void()> htmlkit_container::import_css(
     auto empty = [=]() { on_imported("", base_url); };
     if (m_css_fetch_fn == nullptr) {
         return empty;
+    }
+
+    if (strncmp(url.c_str(), "data:", 5) == 0 && m_info.native_data_scheme) {
+        auto decoded = decode_data_url_base64(url.c_str());
+        if (decoded.empty()) {
+            return empty;
+        }
+        litehtml::string css_text(decoded.data(), decoded.size());
+        return [=]() { on_imported(css_text, base_url); };
     }
 
     GILState gil;
