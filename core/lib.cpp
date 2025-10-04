@@ -115,6 +115,13 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             doc->render(width);
         }
         int content_height = doc->content_height();
+        if (width < 1 || content_height < 1) {
+            width = std::max(1, width);
+            content_height = std::max(1, content_height);
+            GILState gil;
+            PyErr_WarnEx(PyExc_RuntimeWarning,
+                         "Resulting image has zero width or height", 1);
+        }
         cairo_surface_t* surface =
             cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, content_height);
         cairo_surface_t* dbg_surface =

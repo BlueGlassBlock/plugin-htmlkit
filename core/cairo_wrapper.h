@@ -169,7 +169,7 @@ cairo_pattern_t* create_pattern(double angle, double radius,
 } // namespace conic_gradient
 
 struct BufferView {
-    const char* data;
+    const unsigned char* data;
     unsigned int size;
     unsigned int offset;
 };
@@ -182,6 +182,15 @@ cairo_status_t cairo_surface_write_to_jpeg_mem(cairo_surface_t* sfc,
                                                unsigned char** data, size_t* len,
                                                int quality);
 cairo_surface_t* cairo_image_surface_create_from_jpeg_mem(void* data, size_t len);
+
+cairo_surface_t* cairo_image_surface_create_from_avif_mem(const uint8_t* data,
+                                                          size_t len);
+
+cairo_surface_t* cairo_image_surface_create_from_webp_mem(const uint8_t* data,
+                                                          size_t len);
+
+cairo_surface_t* cairo_image_surface_create_from_gif_mem(const uint8_t* data,
+                                                         size_t len);
 } // namespace cairo_wrapper
 
 #endif // CAIRO_WRAPPER_H

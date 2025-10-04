@@ -1196,7 +1196,7 @@ void htmlkit_container::set_base_url(const char* base_url) {
     }
 }
 
-std::vector<char> decode_data_url_base64(const char* input) {
+std::vector<unsigned char> decode_data_url_base64(const char* input) {
     const char* base64_start = std::strstr(input, ";base64,");
     if (!base64_start)
         return {};
@@ -1208,36 +1208,42 @@ std::vector<char> decode_data_url_base64(const char* input) {
         return {};
 
     size_t out_capacity = base64_len / 4 * 3 + 4;
-    std::vector<char> decoded(out_capacity);
+    std::vector<unsigned char> decoded(out_capacity);
 
     size_t out_len = 0;
-    base64_decode(base64_start, base64_len, decoded.data(), &out_len, 0);
+    base64_decode(base64_start, base64_len, reinterpret_cast<char*>(decoded.data()),
+                  &out_len, 0);
 
     decoded.resize(out_len);
     return std::move(decoded);
 }
 
-cairo_surface_t* create_image_from_data(char* buf, size_t size) {
-    if (strncmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
+cairo_surface_t* create_image_from_data(unsigned char* buf, size_t size) {
+    cairo_surface_t* surface = nullptr;
+    if (size > 8 && memcmp(buf, "\x89PNG\r\n\x1a\n", 8) == 0) {
         cairo_wrapper::BufferView view{buf, static_cast<unsigned int>(size), 0};
-        cairo_surface_t* surface = cairo_image_surface_create_from_png_stream(
+        surface = cairo_image_surface_create_from_png_stream(
             cairo_wrapper::read_from_view, &view);
-        if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-            cairo_surface_destroy(surface);
-            return nullptr;
-        }
-        return surface;
+    } else if (size > 3 && memcmp(buf, "\xFF\xD8\xFF", 3) == 0) {
+        surface = cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(buf, size);
+    } else if (size > 12 && memcmp(buf, "RIFF", 4) == 0 &&
+               memcmp(buf + 8, "WEBP", 4) == 0) {
+        surface = cairo_wrapper::cairo_image_surface_create_from_webp_mem(buf, size);
+    } else if (size > 3 && memcmp(buf, "GIF", 3) == 0) {
+        surface = cairo_wrapper::cairo_image_surface_create_from_gif_mem(buf, size);
+    } else if (size > 12 && memcmp(buf + 8, "avif", 4) == 0) {
+        surface = cairo_wrapper::cairo_image_surface_create_from_avif_mem(buf, size);
+    } else {
+        return nullptr;
     }
-    if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0) {
-        cairo_surface_t* surface =
-            cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(buf, size);
-        if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-            cairo_surface_destroy(surface);
-            return nullptr;
-        }
-        return surface;
+    if (surface == nullptr) {
+        return nullptr;
     }
-    return nullptr;
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        cairo_surface_destroy(surface);
+        return nullptr;
+    }
+    return surface;
 }
 
 void htmlkit_container::load_image(const char* src, const char* baseurl,
@@ -1301,7 +1307,8 @@ void htmlkit_container::process_images() {
             handle_exception();
             continue;
         }
-        if (cairo_surface_t* surface = create_image_from_data(buf, size)) {
+        if (cairo_surface_t* surface =
+                create_image_from_data(reinterpret_cast<unsigned char*>(buf), size)) {
             m_img_surfaces.emplace(std::make_tuple(src, baseurl), surface);
         }
     }
@@ -1328,7 +1335,7 @@ std::function<void()> htmlkit_container::import_css(
     const std::function<void(const litehtml::string& css_text,
                              const litehtml::string& new_baseurl)>& on_imported) {
 
-    litehtml::string base_url = origin_baseurl.length() ? origin_baseurl : m_base_url;
+    litehtml::string base_url = origin_baseurl.empty() ? m_base_url : origin_baseurl;
 
     auto empty = [=]() { on_imported("", base_url); };
     if (m_css_fetch_fn == nullptr) {
@@ -1340,7 +1347,8 @@ std::function<void()> htmlkit_container::import_css(
         if (decoded.empty()) {
             return empty;
         }
-        litehtml::string css_text(decoded.data(), decoded.size());
+        litehtml::string css_text(reinterpret_cast<char*>(decoded.data()),
+                                  decoded.size());
         return [=]() { on_imported(css_text, base_url); };
     }
 

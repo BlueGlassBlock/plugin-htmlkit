@@ -51,8 +51,9 @@ package("litehtml_local")
     end)
 package_end()
 
-add_requires("litehtml_local", "pango", "libjpeg-turbo", "aklomp-base64", "fmt")
+add_requires("litehtml_local", "pango", "libjpeg-turbo", "libwebp", "giflib", "aklomp-base64", "fmt")
 set_languages("c++17")
+add_requires("libavif", {configs = { aom = true }})
 add_requires("cairo", {configs = { xlib = false }})
 add_requireconfs("**.cairo", { override = true, configs = { xlib = false } })
 add_requires("python", { system = true, version = "3.10.11", configs = { shared = true } })
@@ -67,7 +68,8 @@ function require_htmlkit()
             add_linkorders("pangocairo-1.0", "pangoft2-1.0", "pango-1.0")
         end
     end
-    add_packages("litehtml_local", "cairo", "cairo_jpg", "pango", "python", "libjpeg-turbo", "aklomp-base64", "fmt")
+    add_packages("litehtml_local", "cairo", "pango", "python", "libjpeg-turbo", "libwebp", "libavif", "giflib")
+    add_packages("aklomp-base64", "fmt")
     add_packages("python", { links = {} })
     add_files("core/*.cpp")
     add_defines("UNICODE", "PY_SSIZE_T_CLEAN", "Py_LIMITED_API=0x030a0000")  -- Python 3.10

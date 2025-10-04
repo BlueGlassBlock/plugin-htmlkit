@@ -17,8 +17,12 @@ License along with this library; if not, see <https://www.gnu.org/licenses/>.
 
 #include "cairo_wrapper.h"
 
+#include <avif/avif.h>
 #include <cmath>
+#include <gif_lib.h>
 #include <jpeglib.h>
+#include <webp/decode.h>
+#include <webp/demux.h>
 
 using namespace cairo_wrapper;
 
@@ -586,4 +590,203 @@ cairo_surface_t* cairo_wrapper::cairo_image_surface_create_from_jpeg_mem(void* d
     jpeg_destroy_decompress(&cinfo);
 
     return sfc;
+}
+
+cairo_surface_t*
+cairo_wrapper::cairo_image_surface_create_from_webp_mem(const uint8_t* data,
+                                                        size_t len) {
+    WebPBitstreamFeatures features;
+    if (WebPGetFeatures(data, len, &features) != VP8_STATUS_OK)
+        return nullptr;
+
+    // --- Animated WebP path ---
+    if (features.has_animation) {
+        WebPData webp_data = {data, len};
+        WebPAnimDecoderOptions opts;
+        WebPAnimDecoderOptionsInit(&opts);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+        opts.color_mode = MODE_BGRA;
+#else
+        opts.color_mode = MODE_ARGB;
+#endif
+        WebPAnimDecoder* dec = WebPAnimDecoderNew(&webp_data, &opts);
+        if (!dec)
+            return nullptr;
+
+        WebPAnimInfo anim_info;
+        if (!WebPAnimDecoderGetInfo(dec, &anim_info)) {
+            WebPAnimDecoderDelete(dec);
+            return nullptr;
+        }
+
+        int width = anim_info.canvas_width;
+        int height = anim_info.canvas_height;
+
+        cairo_surface_t* surface =
+            cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+        if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+            WebPAnimDecoderDelete(dec);
+            return nullptr;
+        }
+
+        uint8_t* pixels = cairo_image_surface_get_data(surface);
+        int stride = cairo_image_surface_get_stride(surface);
+
+        // Get the *first frame*
+        uint8_t* frame_rgba;
+        int timestamp;
+        if (!WebPAnimDecoderGetNext(dec, &frame_rgba, &timestamp)) {
+            cairo_surface_destroy(surface);
+            WebPAnimDecoderDelete(dec);
+            return nullptr;
+        }
+
+        for (int y = 0; y < height; y++) {
+            memcpy(pixels + y * stride, frame_rgba + y * width * 4, width * 4);
+        }
+
+        cairo_surface_mark_dirty(surface);
+        WebPAnimDecoderDelete(dec);
+        return surface;
+    }
+
+    int width = features.width;
+    int height = features.height;
+
+    cairo_surface_t* surface =
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
+        return nullptr;
+
+    uint8_t* pixels = cairo_image_surface_get_data(surface);
+    int stride = cairo_image_surface_get_stride(surface);
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    if (!WebPDecodeBGRAInto(data, len, pixels, stride * height, stride))
+#else
+    if (!WebPDecodeARGBInto(data, len, pixels, stride * height, stride))
+#endif
+    {
+        cairo_surface_destroy(surface);
+        return nullptr;
+    }
+
+    cairo_surface_mark_dirty(surface);
+    return surface;
+}
+
+cairo_surface_t*
+cairo_wrapper::cairo_image_surface_create_from_avif_mem(const uint8_t* data,
+                                                        size_t len) {
+    avifDecoder* decoder = avifDecoderCreate();
+    if (avifDecoderSetIOMemory(decoder, data, len) != AVIF_RESULT_OK) {
+        avifDecoderDestroy(decoder);
+        return nullptr;
+    }
+    if (avifDecoderParse(decoder) != AVIF_RESULT_OK) {
+        avifDecoderDestroy(decoder);
+        return nullptr;
+    }
+    if (avifDecoderNextImage(decoder) != AVIF_RESULT_OK) {
+        avifDecoderDestroy(decoder);
+        return nullptr;
+    }
+
+    int width = decoder->image->width;
+    int height = decoder->image->height;
+
+    cairo_surface_t* surface =
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        avifDecoderDestroy(decoder);
+        return nullptr;
+    }
+
+    uint8_t* pixels = cairo_image_surface_get_data(surface);
+    int stride = cairo_image_surface_get_stride(surface);
+
+    avifRGBImage rgb;
+    avifRGBImageSetDefaults(&rgb, decoder->image);
+    rgb.depth = 8;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    rgb.format = AVIF_RGB_FORMAT_BGRA;
+#else
+    rgb.format = AVIF_RGB_FORMAT_ARGB;
+#endif
+    rgb.rowBytes = stride;
+    rgb.pixels = pixels;
+
+    if (avifImageYUVToRGB(decoder->image, &rgb) != AVIF_RESULT_OK) {
+        cairo_surface_destroy(surface);
+        avifDecoderDestroy(decoder);
+        return nullptr;
+    }
+    cairo_surface_mark_dirty(surface);
+
+    avifDecoderDestroy(decoder);
+    return surface;
+}
+
+cairo_surface_t*
+cairo_wrapper::cairo_image_surface_create_from_gif_mem(const uint8_t* data,
+                                                       size_t len) {
+    int error = 0;
+    size_t offset = 0;
+    typedef struct {
+        const uint8_t* data;
+        size_t size;
+        size_t* offset;
+    } Context;
+    Context ctx = {data, len, &offset};
+
+    auto readFunc = [](GifFileType* gif, GifByteType* buf, int len) -> int {
+        auto* ctx = static_cast<Context*>(gif->UserData);
+        size_t remain = ctx->size - *ctx->offset;
+        if (len > remain)
+            len = remain;
+        memcpy(buf, ctx->data + *ctx->offset, len);
+        *ctx->offset += len;
+        return len;
+    };
+
+    GifFileType* gif = DGifOpen(&ctx, readFunc, &error);
+    if (!gif)
+        return nullptr;
+
+    DGifSlurp(gif);
+    if (gif->ImageCount < 1) {
+        DGifCloseFile(gif, &error);
+        return nullptr;
+    }
+
+    SavedImage* frame = &gif->SavedImages[0];
+    ColorMapObject* map =
+        frame->ImageDesc.ColorMap ? frame->ImageDesc.ColorMap : gif->SColorMap;
+    if (!map) {
+        DGifCloseFile(gif, &error);
+        return nullptr;
+    }
+
+    int width = gif->SWidth, height = gif->SHeight;
+    cairo_surface_t* surface =
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        DGifCloseFile(gif, &error);
+        return nullptr;
+    }
+
+    uint8_t* pixels = cairo_image_surface_get_data(surface);
+    for (int y = 0; y < height; y++) {
+        uint32_t* row =
+            (uint32_t*)(pixels + y * cairo_image_surface_get_stride(surface));
+        for (int x = 0; x < width; x++) {
+            int idx = frame->RasterBits[y * width + x];
+            GifColorType c = map->Colors[idx];
+            row[x] = (0xFF << 24) | (c.Red << 16) | (c.Green << 8) | c.Blue;
+        }
+    }
+
+    cairo_surface_mark_dirty(surface);
+    DGifCloseFile(gif, &error);
+    return surface;
 }
