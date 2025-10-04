@@ -11,7 +11,6 @@ import jinja2
 import markdown
 
 import nonebot
-from nonebot import get_driver
 from nonebot.drivers import HTTPClientMixin, Request
 from nonebot.log import logger
 from nonebot.plugin import PluginMetadata, get_plugin_config
@@ -29,14 +28,22 @@ __plugin_meta__ = PluginMetadata(
 )
 
 driver = nonebot.get_driver()
+session = driver.get_session() if isinstance(driver, HTTPClientMixin) else None
 
 
-@driver.on_startup
 def init_fontconfig(**kwargs: Any):
     logger.info("Initializing fontconfig...")
     with config.set_fc_environ(get_plugin_config(FcConfig)):
         core._init_fontconfig_internal()  # pyright: ignore[reportPrivateUsage]
     logger.info("Fontconfig initialized.")
+
+
+@driver.on_startup
+async def _():
+    init_fontconfig()
+
+    if session is not None:
+        await session.setup()
 
 
 ImgFetchFn = Callable[[str], Coroutine[Any, Any, bytes | None]]
@@ -92,15 +99,14 @@ async def filesystem_img_fetcher(url: str) -> bytes | None:
 
 
 async def network_img_fetcher(url: str) -> bytes | None:
-    driver = get_driver()
-    if not isinstance(driver, HTTPClientMixin):
+    if session is None:
         logger.critical(
             "Driver does not support HTTP requests. "
             "Please initialize NoneBot with HTTP client drivers like HTTPX or AIOHTTP."
         )
         return None
     try:
-        response = await driver.request(Request("GET", url))
+        response = await session.request(Request("GET", url))
         if isinstance(response.content, bytes):
             return response.content
         return None
@@ -149,15 +155,14 @@ async def filesystem_css_fetcher(url: str) -> str | None:
 
 
 async def network_css_fetcher(url: str) -> str | None:
-    driver = get_driver()
-    if not isinstance(driver, HTTPClientMixin):
+    if session is None:
         logger.critical(
             "Driver does not support HTTP requests. "
             "Please initialize NoneBot with HTTP client drivers like HTTPX or AIOHTTP."
         )
         return None
     try:
-        response = await driver.request(Request("GET", url))
+        response = await session.request(Request("GET", url))
         if isinstance(response.content, bytes):
             try:
                 return response.content.decode("utf-8")
