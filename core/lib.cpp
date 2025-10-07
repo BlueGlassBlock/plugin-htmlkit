@@ -46,12 +46,7 @@ static PyObject* render(PyObject* mod, PyObject* args) {
                           &fast_data_scheme, &debug_flag)) {
         return nullptr;
     }
-    Py_XINCREF(urljoin);
-    Py_XINCREF(exception_fn);
-    Py_XINCREF(asyncio_run_coroutine_threadsafe);
-    Py_XINCREF(asyncio_loop);
-    Py_XINCREF(img_fetch_fn);
-    Py_XINCREF(css_fetch_fn);
+    Py_INCREF(args);
     info.dpi = arg_dpi;
     info.width = arg_width;
     info.height = arg_height;
@@ -78,8 +73,11 @@ static PyObject* render(PyObject* mod, PyObject* args) {
         return nullptr;
     }
 
-    Py_INCREF(future);
     std::thread([=]() {
+        PangoFontMap* font_map =
+            pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
+        pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(font_map));
+
         auto bail = [=]() {
             GILState bail_gil;
             PyObjectPtr exc_ty(nullptr), exc_val(nullptr), exc_tb(nullptr);
@@ -97,17 +95,11 @@ static PyObject* render(PyObject* mod, PyObject* args) {
                 PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
                 PyErr_Print();
             }
-            Py_XDECREF(urljoin);
-            Py_XDECREF(exception_fn);
-            Py_XDECREF(asyncio_run_coroutine_threadsafe);
-            Py_XDECREF(asyncio_loop);
-            Py_XDECREF(img_fetch_fn);
-            Py_XDECREF(css_fetch_fn);
+            Py_DECREF(future);
+            Py_DECREF(args);
+            g_object_unref(font_map);
         };
 
-        PangoFontMap* font_map =
-            pango_cairo_font_map_new_for_font_type(CAIRO_FONT_TYPE_FT);
-        pango_cairo_font_map_set_default(PANGO_CAIRO_FONT_MAP(font_map));
         debug_container container(base_url_str, info);
         container.urljoin = urljoin;
         container.asyncio_run_coroutine_threadsafe = asyncio_run_coroutine_threadsafe;
@@ -235,13 +227,9 @@ static PyObject* render(PyObject* mod, PyObject* args) {
         if (call_soon_result == nullptr) {
             return bail();
         }
-        Py_XDECREF(future);
-        Py_XDECREF(urljoin);
-        Py_XDECREF(exception_fn);
-        Py_XDECREF(asyncio_run_coroutine_threadsafe);
-        Py_XDECREF(asyncio_loop);
-        Py_XDECREF(img_fetch_fn);
-        Py_XDECREF(css_fetch_fn);
+        Py_DECREF(future);
+        Py_DECREF(args);
+        g_object_unref(font_map);
     }).detach();
     return future;
 }

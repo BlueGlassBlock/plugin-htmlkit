@@ -38,7 +38,6 @@ PyObject* invoke_waiter(PyObject* self, PyObject* args) {
         result != nullptr) {
         std::unique_lock lock(waiter->mtx);
         waiter->result = result; // steal reference
-        Py_INCREF(result);
         waiter->done = true;
         lock.unlock();
         waiter->cv.notify_one();
