@@ -140,7 +140,7 @@ class htmlkit_container : public litehtml::document_container {
                                           int height);
     void process_images();
     void handle_exception() const;
-    const char* call_urljoin(const char* base, const char* url);
+    std::string call_urljoin(const char* base, const char* url);
 };
 
 #endif // HTMLKIT_CONTAINER_H

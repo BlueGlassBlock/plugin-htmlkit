@@ -55,7 +55,7 @@ async def none_fetcher(_url: str) -> None:
 
 
 async def read_file(path: str) -> str:
-    async with aiofiles.open(path, encoding="UTF8") as f:
+    async with aiofiles.open(path, encoding="utf-8") as f:
         return await f.read()
 
 
@@ -244,8 +244,8 @@ async def html_to_pic(
         -1 if image_format == "png" else jpeg_quality,
         lang,
         culture,
-        lambda exc, exc_type, tb: nonebot.logger.opt(
-            exception=(exc_type, exc, tb)
+        lambda exc_type, exc_value, exc_traceback: nonebot.logger.opt(
+            exception=(exc_type, exc_value, exc_traceback)
         ).error("Exception in html_to_pic: "),
         run_coroutine_threadsafe,
         urljoin_fn,
@@ -313,7 +313,7 @@ async def debug_html_to_pic(
         -1 if image_format == "png" else jpeg_quality,
         lang,
         culture,
-        lambda exc, exc_type, tb: nonebot.logger.opt(
+        lambda exc_type, exc, tb: nonebot.logger.opt(
             exception=(exc_type, exc, tb)
         ).error("Exception in html_to_pic: "),
         run_coroutine_threadsafe,

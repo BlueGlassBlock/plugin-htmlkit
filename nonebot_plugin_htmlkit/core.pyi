@@ -7,7 +7,7 @@ from typing_extensions import Unpack
 
 def _init_fontconfig_internal() -> None: ...
 
-_ExceptionTuple: TypeAlias = tuple[BaseException, type[BaseException], TracebackType]
+_ExceptionTuple: TypeAlias = tuple[type[BaseException], BaseException, TracebackType]
 _ExceptionHandleFn: TypeAlias = Callable[[Unpack[_ExceptionTuple]], None]
 _AsyncioRunCoroutineThreadsafeFn: TypeAlias = Callable[
     [Coroutine[Any, Any, Any], asyncio.AbstractEventLoop],

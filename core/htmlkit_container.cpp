@@ -1268,8 +1268,9 @@ void htmlkit_container::load_image(const char* src, const char* baseurl,
         return;
     }
     GILState gil;
-    const char* joined_url = call_urljoin(baseurl, src);
-    const PyObjectPtr awaitable(PyObject_CallFunction(m_img_fetch_fn, "s", joined_url));
+    std::string joined_url = call_urljoin(baseurl, src);
+    const PyObjectPtr awaitable(
+        PyObject_CallFunction(m_img_fetch_fn, "s", joined_url.c_str()));
     if (awaitable == nullptr) {
         handle_exception();
         return;
@@ -1402,31 +1403,32 @@ void htmlkit_container::handle_exception() const {
         PyErr_Print();
         return;
     }
-    PyObject *exc_ty, *exc_val, *exc_tb;
+    PyObject *exc_ty = nullptr, *exc_val = nullptr, *exc_tb = nullptr;
     PyErr_Fetch(&exc_ty, &exc_val, &exc_tb);
-    if (exc_ty == nullptr) {
+    if (exc_val == nullptr) {
         return;
     }
     PyErr_NormalizeException(&exc_ty, &exc_val, &exc_tb);
     if (exc_tb != nullptr) {
         PyException_SetTraceback(exc_val, exc_tb);
     }
-    PyObject* log_result =
-        PyObject_CallFunction(exception_logger, "OOO", exc_ty, exc_val, exc_tb);
+    PyObject* log_result = PyObject_CallFunctionObjArgs(
+        exception_logger, exc_ty, exc_val, exc_tb ? exc_tb : Py_None, nullptr);
     if (log_result == nullptr) {
+        PyErr_Print();
         PyErr_Restore(exc_ty, exc_val, exc_tb);
         PyErr_Print();
     }
 }
 
-const char* htmlkit_container::call_urljoin(const char* base, const char* url) {
-    const char* joined = nullptr;
+std::string htmlkit_container::call_urljoin(const char* base, const char* url) {
+    std::string joined;
     const PyObjectPtr joined_url_obj(PyObject_CallFunction(urljoin, "ss", base, url));
     if (joined_url_obj != nullptr) {
         Py_ssize_t _len;
         joined = PyUnicode_AsUTF8AndSize(joined_url_obj.ptr, &_len);
     }
-    if (joined == nullptr) {
+    if (joined.empty()) {
         handle_exception();
         joined = url;
     }

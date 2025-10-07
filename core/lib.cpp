@@ -46,6 +46,12 @@ static PyObject* render(PyObject* mod, PyObject* args) {
                           &fast_data_scheme, &debug_flag)) {
         return nullptr;
     }
+    Py_XINCREF(urljoin);
+    Py_XINCREF(exception_fn);
+    Py_XINCREF(asyncio_run_coroutine_threadsafe);
+    Py_XINCREF(asyncio_loop);
+    Py_XINCREF(img_fetch_fn);
+    Py_XINCREF(css_fetch_fn);
     info.dpi = arg_dpi;
     info.width = arg_width;
     info.height = arg_height;
@@ -86,13 +92,17 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             if (set_exception == nullptr) {
                 PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
                 PyErr_Print();
-                return;
-            }
-            if (PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO",
-                                    set_exception.ptr, exc_val.ptr) == nullptr) {
+            } else if (PyObject_CallMethod(asyncio_loop, "call_soon_threadsafe", "OO",
+                                           set_exception.ptr, exc_val.ptr) == nullptr) {
                 PyErr_Restore(exc_ty.ptr, exc_val.ptr, exc_tb.ptr);
                 PyErr_Print();
             }
+            Py_XDECREF(urljoin);
+            Py_XDECREF(exception_fn);
+            Py_XDECREF(asyncio_run_coroutine_threadsafe);
+            Py_XDECREF(asyncio_loop);
+            Py_XDECREF(img_fetch_fn);
+            Py_XDECREF(css_fetch_fn);
         };
 
         PangoFontMap* font_map =
@@ -226,6 +236,12 @@ static PyObject* render(PyObject* mod, PyObject* args) {
             return bail();
         }
         Py_XDECREF(future);
+        Py_XDECREF(urljoin);
+        Py_XDECREF(exception_fn);
+        Py_XDECREF(asyncio_run_coroutine_threadsafe);
+        Py_XDECREF(asyncio_loop);
+        Py_XDECREF(img_fetch_fn);
+        Py_XDECREF(css_fetch_fn);
     }).detach();
     return future;
 }
