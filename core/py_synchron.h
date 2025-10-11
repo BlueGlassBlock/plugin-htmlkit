@@ -48,9 +48,9 @@ class PyObjectPtr {
 
     ~PyObjectPtr() { Py_XDECREF(ptr); }
 
-    bool operator==(const nullptr_t p) const { return ptr == p; }
+    bool operator==(const std::nullptr_t p) const { return ptr == p; }
 
-    bool operator!=(const nullptr_t p) const { return ptr != p; }
+    bool operator!=(const std::nullptr_t p) const { return ptr != p; }
 };
 
 struct PyWaiter {

@@ -248,7 +248,20 @@ static PyMethodDef methods[] = {
      /*.ml_meth = */ setup_fontconfig,
      /*.ml_flags = */ METH_VARARGS,
      /*.ml_doc = */ "Setup fontconfig if not already initialized."},
-    {nullptr, nullptr, 0, nullptr}};
+    {nullptr, nullptr, 0, nullptr},
+};
+
+static struct PyModuleDef_Slot module_slots[] = {
+#if (defined(Py_LIMITED_API) ? Py_LIMITED_API : PY_VERSION_HEX) >=                     \
+    0x030C0000 // Python 3.12+
+    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
+#endif
+#if (defined(Py_LIMITED_API) ? Py_LIMITED_API : PY_VERSION_HEX) >=                     \
+    0x030D0000 // Python 3.13+
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+    {0, NULL},
+};
 
 static struct PyModuleDef core_module = {
     /*.m_base = */ PyModuleDef_HEAD_INIT,
@@ -256,6 +269,7 @@ static struct PyModuleDef core_module = {
     /*.m_doc = */ "Native core of htmlkit, built with litehtml.",
     /*.m_size = */ 0, // fontconfig is global
     /*.m_methods = */ methods,
+    /*.m_slots = */ module_slots,
 };
 
 PyMODINIT_FUNC PyInit_core(void) { return PyModuleDef_Init(&core_module); }

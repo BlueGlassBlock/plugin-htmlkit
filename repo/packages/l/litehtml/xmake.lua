@@ -16,6 +16,7 @@ package("litehtml")
             table.insert(configs, "-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON")
         end
         import("package.tools.cmake").install(package, configs, {packagedeps = "gumbo-parser"})
+
         os.cp("include/litehtml.h", package:installdir("include"))
     end)
 
@@ -30,4 +31,3 @@ package("litehtml")
             }
         ]]}, {configs = {languages = "c++17"}}))
     end)
-package_end()
