@@ -7,145 +7,138 @@ on:
       - master
 
 jobs:
-  build:
+  build_macosx:
+    name: Build wheel for ${{ matrix.python }}-macosx_arm64
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
-        name: [manylinux-x64, manylinux-arm64, windows-x64, macos-arm64]
-        include:
-          - before-build: ""
-            container: null
-            repair: ""
-            activate: "source .venv/bin/activate"
-            replace-name: ""
-            pick-wheel: "$(ls ../plugin-htmlkit/wheelhouse/*.whl | head -n1)"
-          - name: manylinux-x64
-            os: ubuntu-latest
-            container:
-              image: quay.io/pypa/manylinux_2_34_x86_64
-            repair: "auditwheel repair dist/*.whl -w wheelhouse"
-            replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-          - name: manylinux-arm64
-            os: ubuntu-24.04-arm
-            container:
-              image: quay.io/pypa/manylinux_2_34_aarch64
-            repair: "auditwheel repair dist/*.whl -w wheelhouse"
-            replace-name: "sed -i -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-          - name: windows-x64
-            os: windows-2025
-            activate: ".venv/Scripts/activate"
-            before-build: "cp .venv/Scripts/python.exe .venv/Scripts/python3.exe" # workaround xmake check for python3 executable
-            replace-name: (Get-Content pyproject.toml) -replace 'name = "nonebot-plugin-htmlkit"', 'name = "test-env"' | Set-Content pyproject.toml
-            repair: "delvewheel repair -w wheelhouse dist/*.whl"
-            pick-wheel: "(Get-ChildItem ..\\plugin-htmlkit\\wheelhouse\\*.whl | Select-Object -First 1).FullName"
-          - name: macos-arm64
-            os: macos-latest
-            repair: "delocate-wheel -w wheelhouse dist/*.whl"
-            replace-name: "sed -i '' -e 's/name = \"nonebot-plugin-htmlkit\"/name = \"test-env\"/' pyproject.toml"
-    env:
-      XMAKE_ROOT: 'y'
-      MACOSX_DEPLOYMENT_TARGET: '11.0'
-      XMAKE_CONFIG_MODE: release
-
-    name: Build on ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
+        python: [cp310, cp312, cp313t, cp314t]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - name: Install UV
-        uses: astral-sh/setup-uv@v6
-      - name: Install XMake
-        uses: xmake-io/github-action-setup-xmake@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          xmake-version: latest
-          package-cache: true
-          package-cache-key: packages-${{ matrix.os }}-${{ hashFiles('xmake.lua', 'litehtml/**', '!litehtml/CMakeLists.txt') }}
-          project-path: .
-          actions-cache-folder: '.xmake-cache'
-          actions-cache-key: xmake-${{ matrix.os }}-${{ hashFiles('xmake.lua') }}
-      - name: Pin Python Version
-        run: uv python pin 3.10.11
-      - name: Build wheels
+          cache-suffix: ${{ matrix.python }}-macosx_arm64
+          cache-dependency-glob: uv.lock
+      - name: Install Xmake
+        run: brew install xmake
+      - name: Cache Xmake
+        uses: actions/cache@v4
+        with:
+          path: ~/.xmake
+          key: xmake-macosx_arm64-${{ hashFiles('xmake.lua') }}
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v3.2.0
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-macosx_arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.python }}-macosx_arm64
+          path: ./wheelhouse/*.whl
+
+  build_win:
+    name: Build wheel for ${{ matrix.python }}-win_amd64
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [cp310, cp312, cp313t, cp314t]
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          cache-suffix: ${{ matrix.python }}-win_amd64
+          cache-dependency-glob: uv.lock
+      - name: Install Xmake
+        uses: MinoruSekine/setup-scoop@v4.0.2
+        with:
+          apps: xmake
+      - name: Cache Xmake
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/.xmake
+          key: xmake-win_amd64-${{ hashFiles('xmake.lua') }}
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v3.2.0
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-win_amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.python }}-win_amd64
+          path: ./wheelhouse/*.whl
+
+  build_linux:
+    name: Build wheel for ${{ matrix.python }}-${{ matrix.platform }}_${{ matrix.archs }}
+    runs-on: ubuntu-24.04${{ matrix.archs == 'aarch64' && '-arm' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [cp310, cp312, cp313t, cp314t]
+        platform: [manylinux, musllinux]
+        archs: [x86_64, aarch64]
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: /tmp/setup-uv-cache
+          key: setup-uv-${{ hashFiles('uv.lock') }}-${{ matrix.python }}-${{ matrix.platform }}_${{ matrix.archs }}
+      - name: Cache tools
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.local
+          key: tools-${{ matrix.platform }}_${{ matrix.archs }}
+      - name: Cache Xmake
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/.xmake
+            !/tmp/.xmake/**/.git
+          key: xmake-${{ matrix.platform }}_${{ matrix.archs }}-${{ hashFiles('xmake.lua') }}
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v3.2.0
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.platform }}_${{ matrix.archs }}
+      - name: Chown Xmake cache
         run: |
-          git config --global --add safe.directory '*'
-          uv venv
-          ${{ matrix.before-build }}
-          ${{ matrix.activate }}
-          uv sync --only-group build --no-install-workspace
-          uv build
-          ${{ matrix.repair }}
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
+          shopt -s globstar
+          sudo rm -rf /tmp/.xmake/**/.git  # FIXME: workaround for https://github.com/actions/toolkit/issues/2155
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
-          path: wheelhouse/*.whl
-      - name: Build Unstripped Binaries
-        run: |
-          git config --global --add safe.directory '*'
-          ${{ matrix.activate }}
-          xmake config -m releasedbg -y
-          xmake build -vD core
-          xmake install -o bindist
-      - name: Upload Binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries-${{ matrix.os }}
-          path: bindist/*
-      - name: Run Test
-        run: |
-          cd ../
-          mkdir test-env
-          cd test-env
-          uv python pin 3.13
-          uv venv
-          ${{ matrix.activate }}
-          cp -r ../plugin-htmlkit/tests/ ./tests
-          cp ../plugin-htmlkit/pyproject.toml ./pyproject.toml
-          ${{ matrix.replace-name }}
-          uv sync --group test --no-install-workspace
-          uv add ${{ matrix.pick-wheel }} --no-install-workspace
-          uv run pytest --output-img-dir ../plugin-htmlkit/tests_output
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ matrix.os }}
-          path: tests_output
+          name: wheel-${{ matrix.python }}-${{ matrix.platform }}_${{ matrix.archs }}
+          path: ./wheelhouse/*.whl
 
   sdist:
     name: Build Source Distribution
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - name: Install UV
+      - name: Install uv
         uses: astral-sh/setup-uv@v6
-      - name: Pin Python Version
-        run: uv python pin 3.10.11
       - name: Build sdist
-        run: |
-          uv venv
-          source .venv/bin/activate
-          uv sync --only-group build --no-install-workspace
-          uv build --sdist
-          mkdir sdist-out
-          cp dist/*.tar.gz sdist-out/
-      - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        run: uv build --sdist
+      - uses: actions/upload-artifact@v4
         with:
           name: sdist
-          path: sdist-out/*
+          path: dist/*.tar.gz
 
   package:
     name: Package + Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [build, sdist]
+    needs: [build_macosx, build_win, build_linux, sdist]
     permissions:
       id-token: write  # required for OIDC trusted publisher
       contents: read
@@ -154,21 +147,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: wheels-*
+          pattern: wheel-*
           merge-multiple: true
       - name: Download sdist
         uses: actions/download-artifact@v4
         with:
           name: sdist
           path: dist
-      - name: Upload Artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/*
-      - name: Install UV
+      - name: Install uv
         uses: astral-sh/setup-uv@v6
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          uv publish --trusted-publishing always
+        run: uv publish --trusted-publishing always

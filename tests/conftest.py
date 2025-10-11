@@ -6,15 +6,12 @@ from pytest_asyncio import is_async_test
 
 import nonebot
 
-# 导入适配器
-from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
-
 ASSETS_DIR = Path(__file__).parent / "assets"
 
 
 def pytest_configure(config: pytest.Config):
     config.stash[NONEBOT_INIT_KWARGS] = {
-        "driver": "~fastapi+~httpx",
+        "driver": "~httpx",
         "fontconfig_path": ASSETS_DIR.as_posix(),
         "fontconfig_file": "fonts.conf",
     }
@@ -53,10 +50,5 @@ def pytest_collection_modifyitems(items: list[pytest.Item]):
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def after_nonebot_init(after_nonebot_init: None):
-    # 加载适配器
-    driver = nonebot.get_driver()
-    driver.register_adapter(OneBotV11Adapter)
-
-    # 加载插件
+async def after_nonebot_init():
     nonebot.load_plugin("nonebot_plugin_htmlkit")
